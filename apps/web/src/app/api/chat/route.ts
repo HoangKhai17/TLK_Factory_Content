@@ -3,16 +3,19 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "@/lib/db";
 import { chatMessages, videos, projects } from "@/lib/db/schema";
-import {
-  generateVideoSpec,
-  chatWithAssistant,
-  isVideoCreationRequest,
-} from "@/lib/gemini/client";
+import { getAIProvider } from "@/lib/ai";
+import { isVideoCreationRequest } from "@/lib/gemini/client";
+import { getRequestUser } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { projectId: string; message: string };
-    const { projectId, message } = body;
+    const body = await request.json() as {
+      projectId: string;
+      message: string;
+      provider?: string;   // optional override
+      model?: string;      // optional override
+    };
+    const { projectId, message, provider, model } = body;
 
     if (!projectId || !message?.trim()) {
       return NextResponse.json(
@@ -24,24 +27,19 @@ export async function POST(request: NextRequest) {
     const db = getDb();
 
     // Verify project exists
-    const project = db
-      .select()
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .get();
+    const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    // Get AI provider (user config or env fallback)
+    const user = getRequestUser(request);
+    const ai = getAIProvider(user?.id ?? null, provider, model);
+
     // Save user message
     const userMsgId = nanoid();
     db.insert(chatMessages)
-      .values({
-        id: userMsgId,
-        projectId,
-        role: "user",
-        content: message.trim(),
-      })
+      .values({ id: userMsgId, projectId, role: "user", content: message.trim() })
       .run();
 
     // Get chat history for context
@@ -51,16 +49,15 @@ export async function POST(request: NextRequest) {
       .where(eq(chatMessages.projectId, projectId))
       .orderBy(chatMessages.createdAt)
       .all()
-      .slice(-20); // Last 20 messages for context
+      .slice(-20);
 
     let assistantContent: string;
     let videoId: string | null = null;
 
     if (isVideoCreationRequest(message)) {
-      // Generate video spec
-      const { spec, assistantMessage } = await generateVideoSpec(message);
+      // Generate video spec via active AI provider
+      const { spec, assistantMessage } = await ai.generateVideoSpec(message);
 
-      // Create video record
       videoId = nanoid();
       db.insert(videos)
         .values({
@@ -73,7 +70,6 @@ export async function POST(request: NextRequest) {
         })
         .run();
 
-      // Update project timestamp
       db.update(projects)
         .set({ updatedAt: new Date().toISOString() })
         .where(eq(projects.id, projectId))
@@ -84,43 +80,29 @@ export async function POST(request: NextRequest) {
         `\n\n✅ **Video spec đã được tạo!** Nhấn **Render** để bắt đầu tạo video MP4.`;
     } else {
       // Normal chat
-      const geminiHistory = history
+      const aiHistory = history
         .filter((m) => m.role !== "system")
-        .slice(0, -1) // Exclude the message we just saved
+        .slice(0, -1)
         .map((m) => ({
-          role: m.role === "assistant" ? ("model" as const) : ("user" as const),
-          parts: m.content,
+          role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+          content: m.content,
         }));
 
-      assistantContent = await chatWithAssistant(geminiHistory, message);
+      assistantContent = await ai.chat(aiHistory, message);
     }
 
     // Save assistant message
     const assistantMsgId = nanoid();
     db.insert(chatMessages)
-      .values({
-        id: assistantMsgId,
-        projectId,
-        role: "assistant",
-        content: assistantContent,
-        videoId: videoId,
-      })
+      .values({ id: assistantMsgId, projectId, role: "assistant", content: assistantContent, videoId })
       .run();
 
-    const assistantMsg = db
-      .select()
-      .from(chatMessages)
-      .where(eq(chatMessages.id, assistantMsgId))
-      .get();
+    const assistantMsg = db.select().from(chatMessages).where(eq(chatMessages.id, assistantMsgId)).get();
 
-    return NextResponse.json({
-      message: assistantMsg,
-      videoId,
-    });
+    return NextResponse.json({ message: assistantMsg, videoId });
   } catch (error) {
     console.error("POST /api/chat error:", error);
-    const errorMsg =
-      error instanceof Error ? error.message : "Internal server error";
+    const errorMsg = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

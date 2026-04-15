@@ -20,13 +20,13 @@
   --text-muted: #94A3B8;
 
   /* Font */
-  --font-poppins: "Poppins", system-ui, sans-serif;
+  --font-jakarta: "Plus Jakarta Sans", system-ui, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text-primary);
-  --font-sans: var(--font-poppins);
+  --font-sans: var(--font-jakarta);
 }
 
 /* ── Base ──────────────────────────────── */
@@ -41,7 +41,7 @@ html, body {
 body {
   background: var(--background);
   color: var(--text-primary);
-  font-family: var(--font-poppins);
+  font-family: var(--font-jakarta);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -1,0 +1,44 @@
+import type { VideoSpec } from "@tlk/shared";
+
+export interface AIMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface VideoSpecResult {
+  spec: VideoSpec;
+  assistantMessage: string;
+}
+
+export interface AIProvider {
+  chat(history: AIMessage[], newMessage: string): Promise<string>;
+  generateVideoSpec(userPrompt: string): Promise<VideoSpecResult>;
+}
+
+export type ProviderType = "gemini" | "openai" | "anthropic";
+
+export const PROVIDER_NAMES: Record<ProviderType, string> = {
+  gemini: "Google Gemini",
+  openai: "OpenAI ChatGPT",
+  anthropic: "Anthropic Claude",
+};
+
+export const PROVIDER_MODELS: Record<ProviderType, { id: string; name: string }[]> = {
+  gemini: [
+    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash" },
+    { id: "gemini-2.0-flash-thinking-exp-01-21", name: "Gemini 2.0 Flash Thinking" },
+    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+  ],
+  openai: [
+    { id: "gpt-4o", name: "GPT-4o" },
+    { id: "gpt-4o-mini", name: "GPT-4o Mini" },
+    { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+    { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
+  ],
+  anthropic: [
+    { id: "claude-opus-4-6", name: "Claude Opus 4.6" },
+    { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
+    { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
+  ],
+};

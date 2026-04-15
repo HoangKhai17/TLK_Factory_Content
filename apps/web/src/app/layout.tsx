@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TLK Factory Content",
-  description: "AI-powered video automation platform",
+  description: "AI-powered video automation platform by Nguyễn Hoàng Khải",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="h-full">
-      <body className="h-full bg-[#080810] text-white antialiased">{children}</body>
+      <body className="h-full bg-white text-[#0F172A] antialiased">{children}</body>
     </html>
   );
 }

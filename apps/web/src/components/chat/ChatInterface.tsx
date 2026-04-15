@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { cn, formatDate } from "@/lib/utils";
 import type { ChatMessage } from "@tlk/shared";
 
@@ -11,17 +12,16 @@ interface ChatInterfaceProps {
 }
 
 const SUGGESTION_PROMPTS = [
-  "Tạo video YouTube giới thiệu sản phẩm 60 giây, phong cách hiện đại",
-  "Tạo video TikTok text animation về tips công nghệ, nền tối gradient",
-  "Tạo video marketing quảng cáo dịch vụ, màu xanh chuyên nghiệp",
-  "Tạo video social media 30 giây, phong cách minimalist đen trắng",
+  { icon: "▶", text: "Tạo video YouTube giới thiệu sản phẩm 60 giây, phong cách hiện đại" },
+  { icon: "◈", text: "Tạo video TikTok text animation về tips công nghệ, gradient xanh" },
+  { icon: "◎", text: "Tạo video marketing quảng cáo dịch vụ, tone màu xanh chuyên nghiệp" },
+  { icon: "T", text: "Tạo video social media 30 giây, phong cách minimalist tối giản" },
 ];
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
   const isAssistant = msg.role === "assistant";
 
-  // Render markdown-lite (bold, newlines)
   const renderContent = (text: string) => {
     return text.split("\n").map((line, i) => {
       const parts = line.split(/(\*\*[^*]+\*\*)/g);
@@ -29,7 +29,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
         <p key={i} className={i > 0 ? "mt-1" : ""}>
           {parts.map((part, j) =>
             part.startsWith("**") && part.endsWith("**") ? (
-              <strong key={j}>{part.slice(2, -2)}</strong>
+              <strong key={j} className="font-semibold">{part.slice(2, -2)}</strong>
             ) : (
               part
             )
@@ -41,8 +41,8 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="max-w-[80%] px-4 py-3 bg-indigo-600 rounded-2xl rounded-tr-sm text-white text-sm">
+      <div className="flex justify-end mb-5">
+        <div className="max-w-[75%] px-4 py-3 tlk-gradient rounded-2xl rounded-tr-sm text-white text-sm shadow-sm shadow-[#3A5AF7]/20">
           {msg.content}
         </div>
       </div>
@@ -51,24 +51,24 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 
   if (isAssistant) {
     return (
-      <div className="flex gap-3 mb-4">
-        {/* Avatar */}
-        <div className="shrink-0 w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
-          AI
+      <div className="flex gap-3 mb-5">
+        {/* AI avatar */}
+        <div className="shrink-0 w-8 h-8 rounded-xl tlk-gradient flex items-center justify-center shadow-sm">
+          <Image src="/logotlk.png" alt="AI" width={20} height={20} className="rounded object-contain" />
         </div>
-        <div className="max-w-[80%]">
-          <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm text-white/90 text-sm">
+        <div className="max-w-[75%]">
+          <div className="px-4 py-3 bg-white border border-[#E2E8F0] rounded-2xl rounded-tl-sm text-[#0F172A] text-sm shadow-sm">
             {renderContent(msg.content)}
           </div>
           {msg.videoId && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-indigo-400">
-              <div className="w-4 h-4 rounded-full border-2 border-indigo-400 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full" />
-              </div>
-              Video spec đã sẵn sàng — xem trong danh sách video
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#3A5AF7] font-medium">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Video spec đã tạo — xem trong tab Videos
             </div>
           )}
-          <p className="text-xs text-white/25 mt-1 ml-1">{formatDate(msg.createdAt)}</p>
+          <p className="text-[11px] text-[#CBD5E1] mt-1 ml-1">{formatDate(msg.createdAt)}</p>
         </div>
       </div>
     );
@@ -107,9 +107,7 @@ export function ChatInterface({
     setSending(true);
     setError("");
 
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     try {
       const res = await fetch("/api/chat", {
@@ -117,12 +115,9 @@ export function ChatInterface({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId, message: trimmed }),
       });
-
       const data = await res.json() as { message?: ChatMessage; videoId?: string | null; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Có lỗi xảy ra");
-      if (data.message) {
-        onMessageSent(data.message, data.videoId ?? null);
-      }
+      if (data.message) onMessageSent(data.message, data.videoId ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi khi gửi tin nhắn");
     } finally {
@@ -137,52 +132,68 @@ export function ChatInterface({
     }
   }
 
-  const showSuggestions = messages.length === 0;
+  const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#F8FAFF]">
+
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {showSuggestions && (
-          <div className="flex flex-col items-center justify-center h-full gap-6 py-8">
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+
+        {/* Welcome / suggestions */}
+        {showWelcome && (
+          <div className="flex flex-col items-center justify-center h-full gap-7 py-8">
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl">
-                ✨
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl tlk-gradient flex items-center justify-center shadow-lg shadow-[#3A5AF7]/25">
+                <Image src="/logotlk.png" alt="TLK AI" width={40} height={40} className="rounded-lg object-contain" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">TLK Factory AI</h3>
-              <p className="text-white/50 text-sm">
-                Mô tả video bạn muốn tạo, AI sẽ tự động thiết kế
+              <h3 className="text-xl font-bold text-[#0F172A] mb-1">TLK Factory AI</h3>
+              <p className="text-[#94A3B8] text-sm max-w-xs">
+                Mô tả video bạn muốn tạo, AI sẽ tự động thiết kế và render cho bạn
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-2 w-full max-w-lg">
+
+            {/* Suggestion pills */}
+            <div className="w-full max-w-lg space-y-2.5">
+              <p className="text-xs text-[#94A3B8] font-medium text-center uppercase tracking-wider mb-3">
+                Thử ngay
+              </p>
               {SUGGESTION_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
-                  onClick={() => void sendMessage(prompt)}
-                  className="px-4 py-3 text-left text-sm text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/40 rounded-xl transition-all"
+                  onClick={() => void sendMessage(prompt.text)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left bg-white border border-[#E2E8F0] hover:border-[#3A5AF7]/40 hover:bg-[#EEF2FF]/50 rounded-xl transition-all group"
                 >
-                  {prompt}
+                  <span className="text-base w-6 text-center shrink-0 opacity-60">{prompt.icon}</span>
+                  <span className="text-sm text-[#475569] group-hover:text-[#0F172A] transition-colors">
+                    {prompt.text}
+                  </span>
+                  <svg className="w-4 h-4 text-[#CBD5E1] group-hover:text-[#3A5AF7] ml-auto shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               ))}
             </div>
           </div>
         )}
 
+        {/* Message list */}
         {messages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} />
         ))}
 
+        {/* Typing indicator */}
         {sending && (
-          <div className="flex gap-3 mb-4">
-            <div className="shrink-0 w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
-              AI
+          <div className="flex gap-3 mb-5">
+            <div className="shrink-0 w-8 h-8 rounded-xl tlk-gradient flex items-center justify-center">
+              <Image src="/logotlk.png" alt="AI" width={20} height={20} className="rounded object-contain" />
             </div>
-            <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm">
+            <div className="px-4 py-3 bg-white border border-[#E2E8F0] rounded-2xl rounded-tl-sm shadow-sm">
               <div className="flex gap-1.5 items-center h-4">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
-                    className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"
+                    className="w-2 h-2 rounded-full bg-[#3A5AF7] animate-bounce opacity-60"
                     style={{ animationDelay: `${i * 0.15}s` }}
                   />
                 ))}
@@ -194,25 +205,31 @@ export function ChatInterface({
         <div ref={bottomRef} />
       </div>
 
-      {/* Error */}
+      {/* Error banner */}
       {error && (
-        <div className="mx-4 mb-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
+        <div className="mx-6 mb-3 px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[#EF4444] text-xs flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
           {error}
         </div>
       )}
 
       {/* Input area */}
-      <div className="px-4 pb-4">
-        <div className="flex items-end gap-2 bg-white/5 border border-white/10 focus-within:border-indigo-500/60 rounded-2xl px-4 py-3 transition-colors">
+      <div className="px-6 pb-5 bg-[#F8FAFF]">
+        <div className={cn(
+          "flex items-end gap-3 bg-white border rounded-2xl px-4 py-3 transition-all shadow-sm",
+          sending ? "border-[#E2E8F0]" : "border-[#E2E8F0] focus-within:border-[#3A5AF7] focus-within:shadow-md focus-within:shadow-[#3A5AF7]/10"
+        )}>
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => { setInput(e.target.value); autoResize(); }}
             onKeyDown={handleKeyDown}
-            placeholder="Mô tả video bạn muốn tạo... (Enter để gửi, Shift+Enter xuống dòng)"
+            placeholder="Mô tả video bạn muốn tạo... (Enter gửi · Shift+Enter xuống dòng)"
             rows={1}
-            className="flex-1 bg-transparent text-white placeholder-white/30 text-sm resize-none focus:outline-none"
-            style={{ maxHeight: 200 }}
+            className="flex-1 bg-transparent text-[#0F172A] placeholder-[#CBD5E1] text-sm resize-none focus:outline-none leading-relaxed"
+            style={{ maxHeight: 160 }}
             disabled={sending}
           />
           <button
@@ -221,8 +238,8 @@ export function ChatInterface({
             className={cn(
               "shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all",
               input.trim() && !sending
-                ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-                : "bg-white/10 text-white/30 cursor-not-allowed"
+                ? "tlk-gradient text-white shadow-sm shadow-[#3A5AF7]/30 hover:opacity-90"
+                : "bg-[#F1F5F9] text-[#CBD5E1] cursor-not-allowed"
             )}
           >
             {sending ? (
@@ -237,8 +254,8 @@ export function ChatInterface({
             )}
           </button>
         </div>
-        <p className="text-xs text-white/20 mt-1.5 text-center">
-          Powered by Gemini AI · TLK Factory
+        <p className="text-[11px] text-[#CBD5E1] mt-2 text-center">
+          Powered by Gemini AI · TLK Factory by Nguyễn Hoàng Khải
         </p>
       </div>
     </div>

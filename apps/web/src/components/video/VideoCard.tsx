@@ -11,46 +11,72 @@ interface VideoCardProps {
 }
 
 const STATUS_CONFIG = {
-  pending: { label: "Chờ render", color: "text-yellow-400", bg: "bg-yellow-400/10", dot: "bg-yellow-400" },
-  generating: { label: "Đang tạo spec...", color: "text-blue-400", bg: "bg-blue-400/10", dot: "bg-blue-400 animate-pulse" },
-  rendering: { label: "Đang render...", color: "text-indigo-400", bg: "bg-indigo-400/10", dot: "bg-indigo-400 animate-pulse" },
-  completed: { label: "Hoàn thành", color: "text-green-400", bg: "bg-green-400/10", dot: "bg-green-400" },
-  failed: { label: "Thất bại", color: "text-red-400", bg: "bg-red-400/10", dot: "bg-red-400" },
+  pending: {
+    label: "Chờ render",
+    color: "text-[#D97706]",
+    bg: "bg-[#FEF3C7]",
+    dot: "bg-[#F59E0B]",
+  },
+  generating: {
+    label: "Đang tạo spec...",
+    color: "text-[#2563EB]",
+    bg: "bg-[#EFF6FF]",
+    dot: "bg-[#3B82F6] animate-pulse",
+  },
+  rendering: {
+    label: "Đang render...",
+    color: "text-[#3A5AF7]",
+    bg: "bg-[#EEF2FF]",
+    dot: "bg-[#3A5AF7] animate-pulse",
+  },
+  completed: {
+    label: "Hoàn thành",
+    color: "text-[#059669]",
+    bg: "bg-[#ECFDF5]",
+    dot: "bg-[#10B981]",
+  },
+  failed: {
+    label: "Thất bại",
+    color: "text-[#DC2626]",
+    bg: "bg-[#FEF2F2]",
+    dot: "bg-[#EF4444]",
+  },
 };
 
-const TYPE_ICONS: Record<string, string> = {
-  youtube: "▶",
-  social: "◈",
-  "text-animation": "T",
-  marketing: "◎",
+const TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  youtube: { label: "YouTube", color: "text-[#DC2626]", bg: "bg-[#FEF2F2]" },
+  social: { label: "Social", color: "text-[#7C3AED]", bg: "bg-[#F5F3FF]" },
+  "text-animation": { label: "Text Anim", color: "text-[#0369A1]", bg: "bg-[#F0F9FF]" },
+  marketing: { label: "Marketing", color: "text-[#059669]", bg: "bg-[#ECFDF5]" },
 };
 
 export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
   const [confirming, setConfirming] = useState(false);
   const status = STATUS_CONFIG[video.status];
-  const spec = video.spec ? JSON.parse(video.spec) : null;
+  const spec = video.spec ? (JSON.parse(video.spec) as { type?: string; resolution?: string }) : null;
+  const typeInfo = spec?.type ? (TYPE_LABELS[spec.type] ?? TYPE_LABELS.youtube) : null;
 
   return (
-    <div className="group bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-indigo-500/40 transition-all">
-      {/* Thumbnail / Preview */}
-      <div className="relative bg-linear-to-br from-indigo-900/40 to-purple-900/40 aspect-video">
+    <div className="group bg-white border border-[#E2E8F0] hover:border-[#3A5AF7]/30 rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md hover:shadow-[#3A5AF7]/5">
+
+      {/* Thumbnail */}
+      <div className="relative bg-[#F0F4FF] aspect-video overflow-hidden">
         {video.thumbnailPath ? (
-          <img
-            src={video.thumbnailPath}
-            alt={video.title}
-            className="w-full h-full object-cover"
-          />
+          <img src={video.thumbnailPath} alt={video.title} className="w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <div className="text-4xl text-white/20">
-              {TYPE_ICONS[spec?.type ?? "youtube"] ?? "▶"}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            {/* Skeleton gradient */}
+            <div className="w-10 h-10 rounded-xl tlk-gradient opacity-20 flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.893L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+              </svg>
             </div>
             {video.status === "rendering" && (
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
-                    className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"
+                    className="w-1.5 h-1.5 rounded-full bg-[#3A5AF7] animate-bounce"
                     style={{ animationDelay: `${i * 0.15}s` }}
                   />
                 ))}
@@ -58,15 +84,15 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
             )}
           </div>
         )}
-        {/* Resolution badge */}
+
+        {/* Badges */}
         {spec?.resolution && (
-          <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/60 rounded text-xs text-white/70">
+          <div className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-lg text-xs text-[#475569] font-medium shadow-sm">
             {spec.resolution}
           </div>
         )}
-        {/* Duration badge */}
         {video.durationSeconds && (
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 rounded text-xs text-white/80">
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/50 backdrop-blur-sm rounded-lg text-xs text-white font-medium">
             {formatDuration(video.durationSeconds)}
           </div>
         )}
@@ -74,36 +100,40 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
 
       {/* Content */}
       <div className="p-4">
+        {/* Title row */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-semibold text-white text-sm leading-tight line-clamp-2">
+          <h3 className="font-semibold text-[#0F172A] text-sm leading-tight line-clamp-2 flex-1">
             {video.title}
           </h3>
-          <div
-            className={cn(
-              "shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs",
-              status.bg,
-              status.color
-            )}
-          >
+          <div className={cn("shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium", status.bg, status.color)}>
             <div className={cn("w-1.5 h-1.5 rounded-full", status.dot)} />
             {status.label}
           </div>
         </div>
 
-        <p className="text-xs text-white/40 mb-4 line-clamp-2">{video.prompt}</p>
-
-        {video.errorMessage && (
-          <p className="text-xs text-red-400 bg-red-400/10 px-2 py-1.5 rounded-lg mb-3">
-            {video.errorMessage}
-          </p>
+        {/* Type badge */}
+        {typeInfo && (
+          <span className={cn("inline-block text-[11px] font-medium px-2 py-0.5 rounded-full mb-2", typeInfo.bg, typeInfo.color)}>
+            {typeInfo.label}
+          </span>
         )}
 
-        <div className="flex items-center gap-2">
+        <p className="text-xs text-[#94A3B8] mb-4 line-clamp-2">{video.prompt}</p>
+
+        {/* Error */}
+        {video.errorMessage && (
+          <div className="mb-3 px-3 py-2 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-xs text-[#DC2626]">
+            {video.errorMessage}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 pt-2 border-t border-[#F1F5F9]">
           {video.status === "completed" && video.outputPath && (
             <a
               href={video.outputPath}
               download
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded-xl text-green-400 text-xs font-medium transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#ECFDF5] hover:bg-[#D1FAE5] border border-[#A7F3D0] rounded-xl text-[#059669] text-xs font-medium transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -115,7 +145,7 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
           {(video.status === "pending" || video.status === "failed") && (
             <button
               onClick={() => onRender(video.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 rounded-xl text-indigo-400 text-xs font-medium transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 tlk-gradient text-white rounded-xl text-xs font-medium transition-opacity hover:opacity-90 shadow-sm shadow-[#3A5AF7]/20"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -125,10 +155,21 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
             </button>
           )}
 
+          {video.status === "rendering" && (
+            <div className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#EEF2FF] rounded-xl text-[#3A5AF7] text-xs font-medium">
+              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Đang xử lý...
+            </div>
+          )}
+
+          {/* Delete */}
           {!confirming ? (
             <button
               onClick={() => setConfirming(true)}
-              className="p-2 text-white/30 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-colors"
+              className="p-2 text-[#CBD5E1] hover:text-[#EF4444] hover:bg-[#FEF2F2] rounded-xl transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -138,13 +179,13 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
             <div className="flex gap-1">
               <button
                 onClick={() => { onDelete(video.id); setConfirming(false); }}
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 rounded-lg text-white text-xs"
+                className="px-2.5 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] rounded-lg text-white text-xs font-medium"
               >
                 Xóa
               </button>
               <button
                 onClick={() => setConfirming(false)}
-                className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs"
+                className="px-2.5 py-1.5 bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg text-[#64748B] text-xs font-medium"
               >
                 Hủy
               </button>
@@ -153,7 +194,8 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
         </div>
       </div>
 
-      <div className="px-4 pb-3 text-xs text-white/30">
+      {/* Date footer */}
+      <div className="px-4 pb-3 text-[11px] text-[#CBD5E1]">
         {formatDate(video.createdAt)}
       </div>
     </div>

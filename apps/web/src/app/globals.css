@@ -1,13 +1,9 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap");
 
 :root {
   /* TLK Brand Colors */
   --blue-primary: #3A5AF7;
-  --blue-accent: #3F5BF9;
-  --blue-soft: #3D5DF6;
   --cyan-primary: #06B3ED;
-  --cyan-bright: #08C2E9;
   --purple-blue: #5B4BFF;
 
   /* Light Theme */
@@ -23,19 +19,18 @@
   --text-secondary: #475569;
   --text-muted: #94A3B8;
 
-  /* Status */
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
+  /* Font */
+  --font-poppins: "Poppins", system-ui, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text-primary);
-  --font-sans: "Poppins", system-ui, sans-serif;
+  --font-sans: var(--font-poppins);
 }
 
-* {
+/* ── Base ──────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
@@ -46,12 +41,12 @@ html, body {
 body {
   background: var(--background);
   color: var(--text-primary);
-  font-family: "Poppins", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-poppins);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar - light theme */
+/* ── Scrollbar ─────────────────────────── */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -68,7 +63,7 @@ body {
   background: #94A3B8;
 }
 
-/* Line clamp */
+/* ── Line clamp ────────────────────────── */
 .line-clamp-1 {
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -82,20 +77,38 @@ body {
   overflow: hidden;
 }
 
-/* TLK gradient utility */
-.tlk-gradient {
-  background: linear-gradient(135deg, #3A5AF7 0%, #06B3ED 100%);
-}
-.tlk-gradient-text {
-  background: linear-gradient(135deg, #3A5AF7 0%, #06B3ED 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+/* ── TLK Brand Utilities ───────────────── */
+/* Wrapped in @layer utilities so Tailwind v4 respects cascade order */
+@layer utilities {
+  .tlk-gradient {
+    background: linear-gradient(135deg, #3A5AF7 0%, #06B3ED 100%) !important;
+    color: #ffffff !important;
+  }
 
-/* Glass card */
-.glass-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  .tlk-gradient-soft {
+    background: linear-gradient(135deg, #3A5AF7 0%, #06B3ED 100%);
+    opacity: 0.12;
+  }
+
+  .tlk-gradient-text {
+    background: linear-gradient(135deg, #3A5AF7 0%, #06B3ED 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .tlk-border-gradient {
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+    background-image: linear-gradient(white, white),
+      linear-gradient(135deg, #3A5AF7, #06B3ED);
+    background-origin: border-box;
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+  }
 }

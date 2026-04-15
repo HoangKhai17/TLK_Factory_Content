@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import type { VideoSpec } from "@tlk/shared";
 import { TLKVideo } from "./compositions/TLKVideo";
 
@@ -67,7 +67,7 @@ const DEFAULT_SPEC: VideoSpec = {
   audio: { backgroundMusic: "none" },
 };
 
-export const RemotionRoot: React.FC = () => {
+const RemotionRoot: React.FC = () => {
   return (
     <Composition
       id="TLKVideo"
@@ -80,3 +80,5 @@ export const RemotionRoot: React.FC = () => {
     />
   );
 };
+
+registerRoot(RemotionRoot);

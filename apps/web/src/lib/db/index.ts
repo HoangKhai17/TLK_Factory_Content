@@ -90,6 +90,14 @@ function runMigrations(sqlite: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_api_configs_user_id ON api_configs(user_id);
 
+    -- Fix deprecated model IDs (1.5-pro and 1.5-flash removed by Google Oct 2025)
+    UPDATE api_configs SET active_model = 'gemini-2.0-flash'
+      WHERE provider = 'gemini'
+        AND active_model NOT IN (
+          'gemini-2.5-pro', 'gemini-2.5-flash',
+          'gemini-2.0-flash', 'gemini-2.0-flash-lite'
+        );
+
     CREATE TABLE IF NOT EXISTS scripts (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,

@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update status to rendering
+    // Update status to rendering and clear previous error
     db.update(videos)
-      .set({ status: "rendering", updatedAt: new Date().toISOString() })
+      .set({ status: "rendering", errorMessage: null, updatedAt: new Date().toISOString() })
       .where(eq(videos.id, videoId))
       .run();
 

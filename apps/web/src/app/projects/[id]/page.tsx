@@ -60,15 +60,20 @@ export default function ProjectPage({
   }, [data?.videos.map((v) => v.id + v.status).join(",")]);
 
   const handleMessageSent = useCallback(
-    (assistantMsg: ChatMessage, videoId: string | null) => {
+    (userMsg: ChatMessage | null, assistantMsg: ChatMessage | null, videoId: string | null) => {
       setData((prev) => {
         if (!prev) return prev;
+        const toAdd = [userMsg, assistantMsg].filter(Boolean) as ChatMessage[];
         if (videoId) {
           fetch(`/api/projects/${id}`)
             .then((r) => r.json() as Promise<ProjectPageData>)
             .then((d) => setData((curr) => (curr ? { ...curr, videos: d.videos } : curr)));
         }
-        return { ...prev, messages: [...prev.messages, assistantMsg] };
+        // Deduplicate: replace optimistic user message when real assistant arrives
+        const existing = prev.messages.filter(
+          (m) => !toAdd.some((a) => a.id === m.id)
+        );
+        return { ...prev, messages: [...existing, ...toAdd] };
       });
       if (videoId) {
         setActiveTab("videos");
@@ -77,6 +82,11 @@ export default function ProjectPage({
     },
     [id]
   );
+
+  const handleClearChat = useCallback(async () => {
+    await fetch(`/api/chat?projectId=${id}`, { method: "DELETE" });
+    setData((prev) => prev ? { ...prev, messages: [] } : prev);
+  }, [id]);
 
   async function handleRender(videoId: string) {
     await fetch("/api/render", {
@@ -307,6 +317,7 @@ export default function ProjectPage({
               projectId={id}
               messages={messages}
               onMessageSent={handleMessageSent}
+              onClearChat={handleClearChat}
             />
           )}
 

@@ -8,7 +8,8 @@ import type { ChatMessage } from "@tlk/shared";
 interface ChatInterfaceProps {
   projectId: string;
   messages: ChatMessage[];
-  onMessageSent: (message: ChatMessage, videoId: string | null) => void;
+  onMessageSent: (userMsg: ChatMessage, assistantMsg: ChatMessage, videoId: string | null) => void;
+  onClearChat: () => void;
 }
 
 const SUGGESTION_PROMPTS = [
@@ -81,10 +82,12 @@ export function ChatInterface({
   projectId,
   messages,
   onMessageSent,
+  onClearChat,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -106,8 +109,19 @@ export function ChatInterface({
     setInput("");
     setSending(true);
     setError("");
+    setConfirmClear(false);
 
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+    // Optimistic user message — show immediately before API responds
+    const optimisticUserMsg: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      role: "user",
+      content: trimmed,
+      status: "done",
+      createdAt: new Date().toISOString(),
+    };
+    onMessageSent(optimisticUserMsg, null as unknown as ChatMessage, null);
 
     try {
       const res = await fetch("/api/chat", {
@@ -117,7 +131,7 @@ export function ChatInterface({
       });
       const data = await res.json() as { message?: ChatMessage; videoId?: string | null; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Có lỗi xảy ra");
-      if (data.message) onMessageSent(data.message, data.videoId ?? null);
+      if (data.message) onMessageSent(null as unknown as ChatMessage, data.message, data.videoId ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi khi gửi tin nhắn");
     } finally {
@@ -136,6 +150,39 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col h-full bg-[#F8FAFF]">
+
+      {/* Chat toolbar — only show when there are messages */}
+      {!showWelcome && (
+        <div className="shrink-0 flex items-center justify-end px-6 py-2 border-b border-[#F1F5F9] bg-white">
+          {confirmClear ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#64748B]">Xóa toàn bộ lịch sử chat?</span>
+              <button
+                onClick={() => { onClearChat(); setConfirmClear(false); }}
+                className="px-2.5 py-1 rounded-lg bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium transition-colors"
+              >
+                Xóa
+              </button>
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#64748B] text-xs font-medium transition-colors"
+              >
+                Hủy
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FEF2F2] rounded-lg transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Xóa lịch sử chat
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-6 py-6">

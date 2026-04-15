@@ -120,8 +120,8 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
 
         <p className="text-xs text-[#94A3B8] mb-4 line-clamp-2">{video.prompt}</p>
 
-        {/* Error */}
-        {video.errorMessage && (
+        {/* Error — only show when actually failed, not when re-rendering */}
+        {video.status === "failed" && video.errorMessage && (
           <div className="mb-3 px-3 py-2 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-xs text-[#DC2626]">
             {video.errorMessage}
           </div>

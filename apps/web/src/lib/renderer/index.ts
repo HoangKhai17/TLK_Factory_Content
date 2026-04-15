@@ -49,6 +49,8 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
   const bundleLocation = await bundle({
     entryPoint: compositionsEntryPath,
     webpackOverride: (config) => config,
+    // Disable caching in development so source changes are picked up immediately
+    enableCaching: process.env.NODE_ENV === "production",
   });
 
   onProgress?.(30);

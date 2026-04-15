@@ -7,6 +7,23 @@ import { getAIProvider } from "@/lib/ai";
 import { isVideoCreationRequest } from "@/lib/gemini/client";
 import { getRequestUser } from "@/lib/auth/session";
 
+// DELETE /api/chat?projectId=xxx — clear all chat messages for a project
+export async function DELETE(request: NextRequest) {
+  const user = getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  const projectId = request.nextUrl.searchParams.get("projectId");
+  if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+
+  const db = getDb();
+  // Verify project belongs to user (via any video or just existence check)
+  const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+  db.delete(chatMessages).where(eq(chatMessages.projectId, projectId)).run();
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as {

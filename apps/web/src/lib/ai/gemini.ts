@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { VideoSpec } from "@tlk/shared";
-import { buildVideoSpecPrompt, SYSTEM_PROMPT } from "@/lib/gemini/prompts";
+import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
 import type { AIMessage, AIProvider, VideoSpecResult } from "./types";
 
 // Models confirmed working — 1.5-pro and 1.5-flash were removed by Google in Oct 2025
@@ -51,7 +51,7 @@ export class GeminiProvider implements AIProvider {
   async chat(history: AIMessage[], newMessage: string): Promise<string> {
     const geminiModel = this.ai.getGenerativeModel({
       model: this.model,
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: getSystemChatPrompt(),
       generationConfig: { temperature: 0.8, maxOutputTokens: 1024 },
     });
 
@@ -69,7 +69,7 @@ export class GeminiProvider implements AIProvider {
     // Step 1: friendly message (conversational, uses SYSTEM_PROMPT)
     const chatModel = this.ai.getGenerativeModel({
       model: this.model,
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: getSystemChatPrompt(),
       generationConfig: { temperature: 0.8, maxOutputTokens: 512 },
     });
     const assistantMessage = await withRetry(async () => {

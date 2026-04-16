@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { videos } from "@/lib/db/schema";
+import { videos, chatMessages, scriptScenes } from "@/lib/db/schema";
 
 export async function GET(
   _req: NextRequest,
@@ -30,6 +30,11 @@ export async function DELETE(
   try {
     const { id } = await params;
     const db = getDb();
+
+    // Clear FK references before deleting to avoid constraint violation
+    db.update(chatMessages).set({ videoId: null }).where(eq(chatMessages.videoId, id)).run();
+    db.update(scriptScenes).set({ videoId: null }).where(eq(scriptScenes.videoId, id)).run();
+
     db.delete(videos).where(eq(videos.id, id)).run();
     return NextResponse.json({ success: true });
   } catch (error) {

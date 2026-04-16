@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene } from "@tlk/shared";
 import { BackgroundDecor } from "../shared/BackgroundDecor";
-import { hexToRgba, parseBackground, LAYOUT } from "../shared/palette";
+import { hexToRgba, parseBackground, useLayout } from "../shared/palette";
 import type { ColorPalette } from "../shared/palette";
 
 interface IntroSceneProps {
@@ -14,6 +14,7 @@ interface IntroSceneProps {
 export function IntroScene({ scene, accentColor, palette }: IntroSceneProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const layout = useLayout();
 
   // Animated outer ring
   const ringScale = spring({ frame, fps, config: { mass: 0.7, damping: 12 }, from: 0.2, to: 1 });
@@ -46,7 +47,7 @@ export function IntroScene({ scene, accentColor, palette }: IntroSceneProps) {
   });
 
   return (
-    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 28 }}>
+    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), justifyContent: "center", alignItems: "center", flexDirection: "column", gap: Math.round(28 * layout.scale), overflow: "hidden" }}>
       <BackgroundDecor palette={palette} intensity={0.7} />
 
       {/* Animated SVG rings */}
@@ -97,7 +98,7 @@ export function IntroScene({ scene, accentColor, palette }: IntroSceneProps) {
       {scene.subtitle && (
         <div style={{
           opacity: subOpacity, transform: `scale(${subScale})`,
-          fontSize: scene.subtitle.fontSize ?? LAYOUT.subtitleSize,
+          fontSize: scene.subtitle.fontSize ?? layout.subtitleSize,
           fontWeight: "normal",
           color: scene.subtitle.color ?? hexToRgba(palette.text, 0.75),
           textAlign: "center", padding: "0 100px", lineHeight: 1.5,

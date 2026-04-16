@@ -1,78 +1,75 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene, TimelineStep } from "@tlk/shared";
 import { BackgroundDecor } from "../shared/BackgroundDecor";
-import { hexToRgba, parseBackground, LAYOUT } from "../shared/palette";
+import { hexToRgba, parseBackground, useLayout } from "../shared/palette";
 import type { ColorPalette } from "../shared/palette";
 
-interface StepRowProps {
-  step: TimelineStep;
-  index: number;
-  accentColor: string;
-  palette: ColorPalette;
-  isLast: boolean;
-}
-
-function StepRow({ step, index, accentColor, palette, isLast }: StepRowProps) {
+function StepRow({
+  step, index, accentColor, palette, isLast,
+}: {
+  step: TimelineStep; index: number; accentColor: string; palette: ColorPalette; isLast: boolean;
+}) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const delay = index * Math.round(fps * 0.32);
+  const layout = useLayout();
+  const delay = index * Math.round(fps * 0.3);
   const eff = Math.max(0, frame - Math.round(fps * 0.2) - delay);
 
   const opacity = interpolate(eff, [0, fps * 0.3], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
-  const x = interpolate(eff, [0, fps * 0.35], [60, 0], {
+  const x = interpolate(eff, [0, fps * 0.35], [50, 0], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
   const numScale = spring({ frame: eff, fps, config: { mass: 0.5, damping: 10 }, from: 0.2, to: 1 });
-
-  // Connector line animates after number
   const lineProgress = interpolate(Math.max(0, eff - Math.round(fps * 0.15)), [0, fps * 0.35], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
 
-  const connectorHeight = 54;
+  const circleSize   = Math.round(52 * layout.scale);
+  const connectorH   = Math.round(48 * layout.scale);
+  const connectorW   = Math.round(22 * layout.scale);
+  const titleFontSz  = Math.round(26 * layout.scale);
+  const descFontSz   = Math.round(19 * layout.scale);
 
   return (
-    <div style={{ display: "flex", gap: 24, alignItems: "flex-start", opacity }}>
+    <div style={{ display: "flex", gap: Math.round(22 * layout.scale), alignItems: "flex-start", opacity }}>
       {/* Number bubble + connector */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-        {/* Step number circle with SVG glow */}
         <div style={{ transform: `scale(${numScale})`, position: "relative" }}>
-          <svg width={56} height={56} style={{ position: "absolute", inset: 0 }}>
-            <circle cx={28} cy={28} r={26} fill="none" stroke={hexToRgba(accentColor, 0.35)} strokeWidth={1.5} strokeDasharray="5 4" />
+          <svg width={circleSize} height={circleSize} style={{ position: "absolute", inset: 0 }}>
+            <circle cx={circleSize/2} cy={circleSize/2} r={circleSize/2 - 2} fill="none" stroke={hexToRgba(accentColor, 0.35)} strokeWidth={1.5} strokeDasharray="5 4" />
           </svg>
           <div style={{
-            width: 56, height: 56, borderRadius: "50%",
+            width: circleSize, height: circleSize, borderRadius: "50%",
             background: `linear-gradient(135deg, ${accentColor}, ${hexToRgba(accentColor, 0.6)})`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22, fontWeight: "black", color: "#ffffff",
+            fontSize: Math.round(20 * layout.scale), fontWeight: 900, color: "#fff",
             boxShadow: `0 0 20px ${hexToRgba(accentColor, 0.5)}, 0 4px 12px rgba(0,0,0,0.3)`,
           }}>
             {step.number}
           </div>
         </div>
 
-        {/* SVG animated connector */}
         {!isLast && (
-          <svg width={24} height={connectorHeight} style={{ marginTop: 4 }}>
-            {/* Static dashed line */}
-            <line x1={12} y1={0} x2={12} y2={connectorHeight * lineProgress} stroke={hexToRgba(accentColor, 0.4)} strokeWidth={2} strokeDasharray="6 4" />
-            {/* Traveling dot */}
+          <svg width={connectorW} height={connectorH} style={{ marginTop: 4 }}>
+            <line x1={connectorW/2} y1={0} x2={connectorW/2} y2={connectorH * lineProgress}
+              stroke={hexToRgba(accentColor, 0.4)} strokeWidth={2} strokeDasharray="6 4" />
             {lineProgress > 0 && lineProgress < 0.95 && (
-              <circle cx={12} cy={connectorHeight * lineProgress} r={3.5} fill={accentColor} style={{ filter: `drop-shadow(0 0 5px ${accentColor})` }} />
+              <circle cx={connectorW/2} cy={connectorH * lineProgress} r={Math.round(3.5 * layout.scale)}
+                fill={accentColor} style={{ filter: `drop-shadow(0 0 5px ${accentColor})` }} />
             )}
           </svg>
         )}
       </div>
 
       {/* Content */}
-      <div style={{ transform: `translateX(${x}px)`, paddingTop: 14, paddingBottom: isLast ? 0 : 8 }}>
-        <div style={{ fontSize: 28, fontWeight: "bold", color: palette.text, lineHeight: 1.2, marginBottom: step.description ? 8 : 0 }}>
+      <div style={{ transform: `translateX(${x}px)`, paddingTop: Math.round(12 * layout.scale), paddingBottom: isLast ? 0 : Math.round(8 * layout.scale) }}>
+        <div style={{ fontSize: titleFontSz, fontWeight: "bold", color: palette.text, lineHeight: 1.2, marginBottom: step.description ? Math.round(6 * layout.scale) : 0 }}>
           {step.title}
         </div>
         {step.description && (
-          <div style={{ fontSize: 20, color: hexToRgba(palette.text, 0.55), lineHeight: 1.55 }}>
+          <div style={{ fontSize: descFontSz, color: hexToRgba(palette.text, 0.55), lineHeight: 1.55 }}>
             {step.description}
           </div>
         )}
@@ -90,6 +87,7 @@ interface TimelineSceneProps {
 export function TimelineScene({ scene, accentColor, palette }: TimelineSceneProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const layout = useLayout();
 
   const titleOpacity = interpolate(frame, [0, fps * 0.35], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
@@ -101,16 +99,23 @@ export function TimelineScene({ scene, accentColor, palette }: TimelineSceneProp
   const steps = scene.steps ?? [];
 
   return (
-    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), flexDirection: "column", padding: `${LAYOUT.py}px ${LAYOUT.px}px`, gap: LAYOUT.gap }}>
+    <AbsoluteFill style={{
+      ...parseBackground(scene.background, palette),
+      flexDirection: "column",
+      padding: `${layout.py}px ${layout.px}px`,
+      gap: layout.gap,
+      overflow: "hidden",
+    }}>
       <BackgroundDecor palette={palette} />
 
       {scene.title && (
         <div style={{
           opacity: titleOpacity, transform: `translateY(${titleY}px)`,
-          fontSize: scene.title.fontSize ?? LAYOUT.titleSize, fontWeight: "bold",
+          fontSize: scene.title.fontSize ?? layout.titleSize, fontWeight: "bold",
           color: scene.title.color ?? palette.text,
-          letterSpacing: "-0.02em", lineHeight: LAYOUT.lineH,
-          paddingBottom: 22, borderBottom: `${LAYOUT.accentBorder}px solid ${accentColor}`,
+          letterSpacing: "-0.02em", lineHeight: layout.lineH,
+          paddingBottom: Math.round(20 * layout.scale),
+          borderBottom: `${layout.accentBorder}px solid ${accentColor}`,
           position: "relative", zIndex: 1,
         }}>
           {scene.title.content}

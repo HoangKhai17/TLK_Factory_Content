@@ -4,8 +4,18 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { PROVIDER_MODELS, PROVIDER_NAMES } from "@/lib/ai/types";
 import type { ProviderType } from "@/lib/ai/types";
+import { SYSTEM_PROMPT_DEFAULT, VIDEO_SPEC_STYLE_DEFAULT } from "@/lib/gemini/prompts";
 
-type SettingsTab = "profile" | "api-keys";
+type SettingsTab = "profile" | "api-keys" | "prompts";
+
+interface PromptTemplate {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  content: string;
+  isDefault: boolean;
+}
 
 interface User {
   id: string;
@@ -282,6 +292,134 @@ function ApiKeyCard({
   );
 }
 
+// ── Prompt Editor Card ─────────────────────────────────────────
+const PROMPT_META: Record<string, { name: string; description: string; defaultContent: string }> = {
+  system_chat: {
+    name: "Chat System Prompt",
+    description: "Nhân cách và giới thiệu AI — hiển thị mỗi khi người dùng bắt đầu hội thoại.",
+    defaultContent: SYSTEM_PROMPT_DEFAULT,
+  },
+  video_spec_style: {
+    name: "Video Style Instruction",
+    description: "Hướng dẫn phong cách & thương hiệu — thêm vào đầu mỗi lần AI tạo video spec.",
+    defaultContent: VIDEO_SPEC_STYLE_DEFAULT,
+  },
+};
+
+function PromptCard({
+  promptKey,
+  saved,
+  onSaved,
+}: {
+  promptKey: string;
+  saved: PromptTemplate | undefined;
+  onSaved: () => void;
+}) {
+  const meta = PROMPT_META[promptKey]!;
+  const [content, setContent] = useState(saved?.content ?? meta.defaultContent);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const isDirty = content !== (saved?.content ?? meta.defaultContent);
+  const isCustom = saved ? !saved.isDefault : false;
+
+  useEffect(() => {
+    setContent(saved?.content ?? meta.defaultContent);
+  }, [saved, meta.defaultContent]);
+
+  async function handleSave() {
+    setSaving(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/settings/prompts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: promptKey, content }),
+      });
+      if (!res.ok) { setMsg("Lỗi lưu"); return; }
+      setMsg("Đã lưu!");
+      onSaved();
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMsg(""), 2000);
+    }
+  }
+
+  async function handleReset() {
+    if (!confirm("Reset về nội dung mặc định?")) return;
+    setSaving(true);
+    try {
+      await fetch("/api/settings/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: promptKey, defaultContent: meta.defaultContent }),
+      });
+      setContent(meta.defaultContent);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-[#F1F5F9]">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="font-semibold text-[13.5px] text-[#0F172A]">{meta.name}</p>
+            {isCustom && (
+              <span className="text-[10.5px] font-bold text-[#7C3AED] bg-[#F5F3FF] px-2 py-0.5 rounded-full">
+                Đã chỉnh sửa
+              </span>
+            )}
+          </div>
+          <p className="text-[12px] text-[#94A3B8]">{meta.description}</p>
+        </div>
+        {isCustom && (
+          <button
+            onClick={handleReset}
+            disabled={saving}
+            title="Reset về mặc định"
+            className="ml-3 p-1.5 text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FEF2F2] rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Editor */}
+      <div className="p-4">
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={8}
+          spellCheck={false}
+          className="w-full px-3 py-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFF] text-[#0F172A] text-[12.5px] font-mono leading-relaxed placeholder-[#CBD5E1] focus:outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/10 transition-all resize-none"
+        />
+        <div className="flex items-center gap-2 mt-2.5">
+          <button
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+            className="px-4 py-2 rounded-xl text-white text-[12.5px] font-semibold tlk-gradient hover:opacity-90 transition-opacity disabled:opacity-40"
+          >
+            {saving ? "Đang lưu..." : "Lưu thay đổi"}
+          </button>
+          {msg && (
+            <span className={cn("text-[12px] font-medium", msg.includes("Lỗi") ? "text-[#EF4444]" : "text-[#10B981]")}>
+              {msg}
+            </span>
+          )}
+          {!isDirty && !msg && (
+            <span className="text-[11.5px] text-[#CBD5E1]">Không có thay đổi</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════
 export function SettingsPanel({ user: initialUser }: { user: User }) {
   const [tab, setTab] = useState<SettingsTab>("profile");
@@ -293,14 +431,23 @@ export function SettingsPanel({ user: initialUser }: { user: User }) {
   const [configs, setConfigs] = useState<ApiConfigUI[]>([]);
 
   const PROVIDERS: ProviderType[] = ["gemini", "openai", "anthropic"];
+  const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
 
-  useEffect(() => { fetchConfigs(); }, []);
+  useEffect(() => { fetchConfigs(); fetchPrompts(); }, []);
 
   async function fetchConfigs() {
     const res = await fetch("/api/settings/api-keys");
     if (res.ok) {
       const d = await res.json() as { configs: ApiConfigUI[] };
       setConfigs(d.configs);
+    }
+  }
+
+  async function fetchPrompts() {
+    const res = await fetch("/api/settings/prompts");
+    if (res.ok) {
+      const d = await res.json() as { prompts: PromptTemplate[] };
+      setPrompts(d.prompts);
     }
   }
 
@@ -327,7 +474,7 @@ export function SettingsPanel({ user: initialUser }: { user: User }) {
     <div className="max-w-2xl">
       <div className="mb-7">
         <h2 className="text-[22px] font-bold text-[#0F172A] leading-tight mb-1">Settings</h2>
-        <p className="text-[13.5px] text-[#64748B]">Quản lý hồ sơ và cấu hình API</p>
+        <p className="text-[13.5px] text-[#64748B]">Quản lý hồ sơ, cấu hình API và prompt AI</p>
       </div>
 
       {/* Tab bar */}
@@ -341,6 +488,11 @@ export function SettingsPanel({ user: initialUser }: { user: User }) {
           { key: "api-keys" as SettingsTab, label: "API Keys", icon: (
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+          )},
+          { key: "prompts" as SettingsTab, label: "Prompts AI", icon: (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           )},
         ]).map(({ key, label, icon }) => (
@@ -428,6 +580,30 @@ export function SettingsPanel({ user: initialUser }: { user: User }) {
               )}
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── Prompts Tab ── */}
+      {tab === "prompts" && (
+        <div className="space-y-5">
+          {/* Info banner */}
+          <div className="flex items-start gap-3 bg-[#F5F3FF] border border-[#DDD6FE] rounded-xl px-4 py-3">
+            <svg className="w-4 h-4 text-[#7C3AED] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-[12.5px] text-[#5B21B6]">
+              Tuỳ chỉnh cách AI giao tiếp và tạo video. Phần <strong>JSON Schema</strong> (cấu trúc scene) được giữ trong code để đồng bộ với Remotion — chỉ có phần <strong>phong cách & nhân cách</strong> được lưu ở đây.
+            </p>
+          </div>
+
+          {Object.keys(PROMPT_META).map((key) => (
+            <PromptCard
+              key={key}
+              promptKey={key}
+              saved={prompts.find((p) => p.key === key)}
+              onSaved={fetchPrompts}
+            />
+          ))}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import type { VideoSpec } from "@tlk/shared";
-import { buildVideoSpecPrompt, SYSTEM_PROMPT } from "@/lib/gemini/prompts";
+import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
 import type { AIMessage, AIProvider, VideoSpecResult } from "./types";
 
 export class AnthropicProvider implements AIProvider {
@@ -47,7 +47,7 @@ export class AnthropicProvider implements AIProvider {
       ...history.map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: newMessage },
     ];
-    return this.callAPI(messages, SYSTEM_PROMPT, 1024);
+    return this.callAPI(messages, getSystemChatPrompt(), 1024);
   }
 
   async generateVideoSpec(userPrompt: string): Promise<VideoSpecResult> {
@@ -59,7 +59,7 @@ export class AnthropicProvider implements AIProvider {
           content: `Người dùng yêu cầu: "${userPrompt}"\n\nHãy xác nhận ngắn gọn (2-3 câu) rằng bạn đang tạo video theo yêu cầu. Không trả về JSON.`,
         },
       ],
-      SYSTEM_PROMPT,
+      getSystemChatPrompt(),
       512
     );
 

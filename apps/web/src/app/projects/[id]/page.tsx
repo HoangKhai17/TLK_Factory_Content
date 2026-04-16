@@ -102,10 +102,12 @@ export default function ProjectPage({
   }
 
   async function handleDeleteVideo(videoId: string) {
-    await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
-    setData((prev) =>
-      prev ? { ...prev, videos: prev.videos.filter((v) => v.id !== videoId) } : prev
-    );
+    const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
+    if (res.ok) {
+      setData((prev) =>
+        prev ? { ...prev, videos: prev.videos.filter((v) => v.id !== videoId) } : prev
+      );
+    }
   }
 
   // ── Loading ──────────────────────────────────────────────

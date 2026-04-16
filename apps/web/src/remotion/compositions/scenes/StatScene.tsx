@@ -1,11 +1,10 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene, StatItem } from "@tlk/shared";
 import { BackgroundDecor } from "../shared/BackgroundDecor";
-import { ProgressRing, BarChart, HexGrid } from "../shared/SvgInfographic";
-import { hexToRgba, parseBackground, LAYOUT } from "../shared/palette";
+import { ProgressRing, BarChart, HexGrid, AnimatedCounter } from "../shared/SvgInfographic";
+import { hexToRgba, parseBackground, useLayout } from "../shared/palette";
 import type { ColorPalette } from "../shared/palette";
 
-/** Detect if value looks like a percentage */
 function parsePercent(value: string): number | null {
   const m = value.match(/^(\d+(?:\.\d+)?)\s*%$/);
   return m ? parseFloat(m[1]!) : null;
@@ -22,10 +21,11 @@ interface StatCardProps {
 function StatCard({ stat, index, accentColor, palette, total }: StatCardProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const delay = index * Math.round(fps * 0.28);
+  const layout = useLayout();
+  const delay = index * Math.round(fps * 0.25);
   const eff = Math.max(0, frame - delay);
 
-  const scale = spring({ frame: eff, fps, config: { mass: 0.5, damping: 11 }, from: 0.3, to: 1 });
+  const scale = spring({ frame: eff, fps, config: { mass: 0.45, damping: 11 }, from: 0.3, to: 1 });
   const opacity = interpolate(eff, [0, fps * 0.25], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
@@ -35,18 +35,21 @@ function StatCard({ stat, index, accentColor, palette, total }: StatCardProps) {
   const isPercent = pct !== null;
   const isLarge = total <= 2;
 
+  const ringSize    = Math.round((isLarge ? 160 : 130) * layout.scale);
+  const ringStroke  = Math.round((isLarge ? 14 : 11) * layout.scale);
+  const valueFontSz = isLarge ? layout.titleSize * 1.7 : total === 3 ? layout.titleSize * 1.35 : layout.titleSize * 1.1;
+
   return (
     <div style={{
       opacity, transform: `scale(${scale})`,
       flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: isLarge ? "48px 60px" : "32px 36px",
+      padding: isLarge ? `${layout.py}px ${layout.px}px` : `${layout.gap}px ${layout.gap * 0.8}px`,
       backgroundColor: hexToRgba(cardColor, 0.07),
-      borderRadius: 24,
+      borderRadius: layout.cardRadius,
       border: `1px solid ${hexToRgba(cardColor, 0.3)}`,
       boxShadow: `0 0 40px ${hexToRgba(cardColor, 0.12)}, inset 0 1px 0 ${hexToRgba(cardColor, 0.2)}`,
-      gap: 16, position: "relative", overflow: "hidden",
+      gap: Math.round(14 * layout.scale), position: "relative", overflow: "hidden",
     }}>
-      {/* Hex grid bg decoration */}
       <HexGrid color={cardColor} opacity={0.06} width={300} height={200} />
 
       {/* Top accent bar */}
@@ -56,43 +59,37 @@ function StatCard({ stat, index, accentColor, palette, total }: StatCardProps) {
         boxShadow: `0 0 12px ${cardColor}`,
       }} />
 
-      {/* Circular ring for percentages */}
+      {/* Circular ring for % */}
       {isPercent && (
         <div style={{ position: "relative" }}>
-          <ProgressRing
-            percent={pct!} color={cardColor}
-            size={isLarge ? 160 : 130}
-            strokeWidth={isLarge ? 14 : 11}
-            startFrame={delay}
-          />
-          {/* Centered value inside ring */}
+          <ProgressRing percent={pct!} color={cardColor} size={ringSize} strokeWidth={ringStroke} startFrame={delay} />
           <div style={{
             position: "absolute", inset: 0,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           }}>
-            <span style={{ fontSize: isLarge ? 38 : 30, fontWeight: "black", color: cardColor, lineHeight: 1, letterSpacing: "-0.03em" }}>
-              {stat.value}
+            <span style={{ fontSize: Math.round(valueFontSz * 0.62), fontWeight: 900, color: cardColor, lineHeight: 1, letterSpacing: "-0.03em" }}>
+              <AnimatedCounter value={stat.value} startFrame={delay} />
             </span>
           </div>
         </div>
       )}
 
-      {/* Big value text for non-percent */}
+      {/* Count-up for non-% */}
       {!isPercent && (
         <div style={{
-          fontSize: isLarge ? 96 : total === 3 ? 76 : 60,
-          fontWeight: "black", color: cardColor, lineHeight: 1,
+          fontSize: Math.round(valueFontSz), fontWeight: 900, color: cardColor, lineHeight: 1,
           letterSpacing: "-0.04em",
           textShadow: `0 0 40px ${hexToRgba(cardColor, 0.5)}`,
         }}>
-          {stat.value}
+          <AnimatedCounter value={stat.value} startFrame={delay} />
         </div>
       )}
 
       <div style={{
-        fontSize: isLarge ? 24 : 20,
+        fontSize: isLarge ? layout.subtitleSize : layout.bodySize,
         color: hexToRgba(palette.text, 0.7),
-        textAlign: "center", fontWeight: "500", lineHeight: 1.4, maxWidth: 200,
+        textAlign: "center", fontWeight: 500, lineHeight: 1.4,
+        maxWidth: Math.round(200 * layout.scale),
       }}>
         {stat.label}
       </div>
@@ -109,6 +106,7 @@ interface StatSceneProps {
 export function StatScene({ scene, accentColor, palette }: StatSceneProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const layout = useLayout();
 
   const headerOpacity = interpolate(frame, [0, fps * 0.35], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
@@ -118,18 +116,24 @@ export function StatScene({ scene, accentColor, palette }: StatSceneProps) {
   });
 
   const stats = scene.stats ?? [];
-  // Bar chart values for non-percent stats
   const barValues = stats.map((s) => parsePercent(s.value) ?? 70);
-  const barColors = stats.map((s) => s.color ?? accentColor);
+  const barColors  = stats.map((s) => s.color ?? accentColor);
 
   return (
-    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), flexDirection: "column", padding: `${LAYOUT.py}px ${LAYOUT.px}px`, gap: LAYOUT.gap, alignItems: "center", justifyContent: "center" }}>
+    <AbsoluteFill style={{
+      ...parseBackground(scene.background, palette),
+      flexDirection: "column",
+      padding: `${layout.py}px ${layout.px}px`,
+      gap: layout.gap,
+      alignItems: "center", justifyContent: "center",
+      overflow: "hidden",
+    }}>
       <BackgroundDecor palette={palette} />
 
       {scene.title && (
         <div style={{
           opacity: headerOpacity, transform: `translateY(${headerY}px)`,
-          fontSize: scene.title.fontSize ?? 46, fontWeight: "bold",
+          fontSize: scene.title.fontSize ?? layout.titleSize, fontWeight: "bold",
           color: scene.title.color ?? palette.text,
           textAlign: "center", letterSpacing: "-0.02em", lineHeight: 1.2,
           position: "relative", zIndex: 1,
@@ -138,13 +142,10 @@ export function StatScene({ scene, accentColor, palette }: StatSceneProps) {
         </div>
       )}
 
-      {/* Stats grid */}
       <div style={{
-        display: "flex",
-        flexDirection: stats.length > 3 ? "row" : "row",
+        display: "flex", flexDirection: "row",
         flexWrap: stats.length > 3 ? "wrap" : "nowrap",
-        gap: 24, width: "100%",
-        maxHeight: stats.length > 3 ? "none" : 320,
+        gap: Math.round(20 * layout.scale), width: "100%",
         position: "relative", zIndex: 1,
       }}>
         {stats.map((stat, i) => (
@@ -152,12 +153,12 @@ export function StatScene({ scene, accentColor, palette }: StatSceneProps) {
         ))}
       </div>
 
-      {/* Optional bar chart below for visual richness */}
       {stats.length >= 2 && stats.length <= 4 && (
         <div style={{ opacity: headerOpacity, position: "relative", zIndex: 1 }}>
           <BarChart
             values={barValues} colors={barColors}
-            width={Math.min(stats.length * 140, 560)} height={80}
+            width={Math.min(stats.length * Math.round(130 * layout.scale), Math.round(560 * layout.scale))}
+            height={Math.round(72 * layout.scale)}
             startFrame={Math.round(fps * 0.4)}
           />
         </div>
@@ -166,7 +167,7 @@ export function StatScene({ scene, accentColor, palette }: StatSceneProps) {
       {scene.subtitle && (
         <div style={{
           opacity: headerOpacity,
-          fontSize: scene.subtitle.fontSize ?? 22,
+          fontSize: scene.subtitle.fontSize ?? layout.subtitleSize,
           color: hexToRgba(palette.text, 0.5),
           textAlign: "center", fontStyle: "italic",
           position: "relative", zIndex: 1,

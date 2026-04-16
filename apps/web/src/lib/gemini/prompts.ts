@@ -1,6 +1,12 @@
 import type { VideoType } from "@tlk/shared";
 
-export const SYSTEM_PROMPT = `Bạn là TLK Factory AI - một chuyên gia thiết kế video automation.
+// ─────────────────────────────────────────────────────────────────────────────
+// DEFAULT CONSTANTS
+// These are the fallback values used when no DB override exists.
+// They are also seeded into the DB on first run (see db/index.ts).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const SYSTEM_PROMPT_DEFAULT = `Bạn là TLK Factory AI - một chuyên gia thiết kế video automation.
 Nhiệm vụ của bạn là giúp người dùng tạo ra các video chuyên nghiệp dựa trên mô tả của họ.
 
 Bạn hỗ trợ các loại video:
@@ -15,17 +21,52 @@ Khi người dùng mô tả video họ muốn tạo, bạn cần:
 
 Hãy giao tiếp thân thiện bằng tiếng Việt, trừ khi người dùng dùng ngôn ngữ khác.`;
 
-export function buildVideoSpecPrompt(userPrompt: string): string {
-  return `Người dùng muốn tạo video với yêu cầu sau:
-"${userPrompt}"
+export const VIDEO_SPEC_STYLE_DEFAULT = `Tạo video chuyên nghiệp, hiện đại với phong cách visual cao cấp.
+Ưu tiên:
+- Gradient màu sắc đậm, tối (dark theme) tạo cảm giác sang trọng
+- Typography rõ ràng, dễ đọc, font size phù hợp
+- Bố cục cân đối, có trật tự, không rối mắt
+- Màu accent nổi bật để highlight thông tin quan trọng
+- Nội dung súc tích, đúng trọng tâm, không dài dòng`;
 
-Hãy phân tích yêu cầu và tạo một video spec JSON hoàn chỉnh, đa dạng scene types, phong phú nội dung.
-Trả về CHÍNH XÁC một JSON object theo schema sau:
+// ─────────────────────────────────────────────────────────────────────────────
+// SCHEMA PROMPT (immutable — mirrors TypeScript types + Remotion components)
+// Do NOT store this in DB. It must stay in sync with the codebase.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildVideoSpecSchemaPrompt(): string {
+  return `═══════════════════════════════════════════════
+QUY TẮC THỜI LƯỢNG — ĐỌC KỸ TRƯỚC KHI TẠO:
+═══════════════════════════════════════════════
+
+SCENE DURATION (trường "duration" trong mỗi scene):
+• Scene text đơn giản (text-animation, quote): 3–4 giây
+• Scene có list ngắn (≤3 bullet): 4–5 giây
+• Scene có list dài (4–6 bullet): 5–7 giây
+• Scene thống kê/số liệu (stat): 4–6 giây
+• Scene timeline (≤3 bước): 5–6 giây, (4–5 bước): 6–8 giây
+• Scene split: 4–5 giây
+• Intro/Outro: 3–4 giây
+• TUYỆT ĐỐI KHÔNG vượt quá 8 giây/scene
+
+TỔNG THỜI LƯỢNG VIDEO (trường "duration" ở root):
+• Phải bằng TỔNG của tất cả scene duration
+• Ví dụ: 4 scenes × 4s = 16s tổng, KHÔNG được điền 60s
+
+INTRO & OUTRO:
+• CHỈ thêm "intro" khi user yêu cầu giới thiệu, branding, hoặc video dài (>30s)
+• CHỈ thêm "outro" khi user yêu cầu CTA, kết thúc rõ ràng, hoặc video dài (>30s)
+• Video ngắn/đơn giản: bắt đầu thẳng vào nội dung, KHÔNG cần intro/outro
+• Đừng thêm scene thừa làm video dài không cần thiết
+
+═══════════════════════════════════════════════
+SCHEMA JSON:
+═══════════════════════════════════════════════
 
 {
   "type": "youtube" | "social" | "text-animation" | "marketing",
   "title": "Tiêu đề video",
-  "duration": <số giây tổng>,
+  "duration": <TỔNG giây = tổng tất cả scene.duration>,
   "fps": 30,
   "resolution": "1920x1080" | "1080x1920" | "1080x1080" | "1280x720",
   "colorPalette": {
@@ -35,128 +76,97 @@ Trả về CHÍNH XÁC một JSON object theo schema sau:
     "background": "#HEX",
     "text": "#HEX"
   },
-  "font": {
-    "heading": "Inter" | "Poppins" | "Montserrat" | "Playfair Display" | "Roboto",
-    "body": "Inter" | "Open Sans" | "Lato" | "Roboto"
-  },
-  "scenes": [ <array of scene objects — see types below> ],
-  "audio": {
-    "backgroundMusic": "upbeat" | "calm" | "dramatic" | "corporate" | "none"
-  }
+  "font": { "heading": "Inter", "body": "Inter" },
+  "scenes": [ ... ],
+  "audio": { "backgroundMusic": "upbeat" | "calm" | "dramatic" | "corporate" | "none" }
 }
 
 ═══════════════════════════════════════════════
-SCENE TYPES — chọn đúng type phù hợp nội dung:
+SCENE TYPES:
 ═══════════════════════════════════════════════
 
-1. TYPE "intro" — màn hình mở đầu ấn tượng
-{
-  "id": "scene-1", "type": "intro", "duration": 4,
-  "background": "gradient:#1a1a2e,#0f3460",
-  "title": { "content": "Tiêu đề lớn", "fontSize": 80, "fontWeight": "black", "color": "#fff", "align": "center", "animation": "slideInUp" },
-  "subtitle": { "content": "Mô tả ngắn", "fontSize": 32, "fontWeight": "normal", "color": "#ffffffcc", "align": "center", "animation": "fadeIn", "animationDelay": 0.4 }
-}
+1. "intro" — mở đầu (3–4s, CHỈ dùng khi cần)
+{ "id":"s1","type":"intro","duration":3,"background":"gradient:#1a1a2e,#0f3460",
+  "title":{"content":"Tiêu đề","fontSize":80,"fontWeight":"black","color":"#fff","align":"center","animation":"slideInUp"},
+  "subtitle":{"content":"Mô tả","fontSize":32,"color":"#ffffffcc","animation":"fadeIn","animationDelay":0.4} }
 
-2. TYPE "bullet-list" — danh sách tips, tính năng, lợi ích ← DÙNG CHO NỘI DUNG DẠNG LIST
-{
-  "id": "scene-2", "type": "bullet-list", "duration": 7,
-  "background": "gradient:#0f0f1a,#1a0a2e",
-  "title": { "content": "5 Tips Quan Trọng", "fontSize": 52, "fontWeight": "bold", "color": "#fff", "animation": "slideInUp" },
-  "subtitle": { "content": "Áp dụng ngay hôm nay", "fontSize": 24, "color": "#aaaaff" },
-  "bullets": [
-    { "icon": "🚀", "text": "Tip 1 ngắn gọn, rõ ràng" },
-    { "icon": "💡", "text": "Tip 2 ngắn gọn, rõ ràng" },
-    { "icon": "✅", "text": "Tip 3 ngắn gọn, rõ ràng" },
-    { "icon": "🎯", "text": "Tip 4 ngắn gọn, rõ ràng" },
-    { "icon": "⚡", "text": "Tip 5 ngắn gọn, rõ ràng" }
-  ]
-}
+2. "bullet-list" — danh sách tips/tính năng (4–7s tùy số bullets)
+{ "id":"s2","type":"bullet-list","duration":5,"background":"gradient:#0f0f1a,#1a0a2e",
+  "title":{"content":"Tiêu đề section","fontSize":52,"fontWeight":"bold","color":"#fff","animation":"slideInUp"},
+  "bullets":[
+    {"icon":"🚀","text":"Nội dung tip 1"},
+    {"icon":"💡","text":"Nội dung tip 2"},
+    {"icon":"✅","text":"Nội dung tip 3"}
+  ] }
 
-3. TYPE "stat" — số liệu nổi bật, data, thống kê ← DÙNG KHI CÓ CON SỐ ẤN TƯỢNG
-{
-  "id": "scene-3", "type": "stat", "duration": 6,
-  "background": "gradient:#0a0a1a,#0d1b2a",
-  "title": { "content": "Kết Quả Thực Tế", "fontSize": 44, "fontWeight": "bold", "color": "#fff" },
-  "stats": [
-    { "value": "10x", "label": "Tăng năng suất", "color": "#00d4ff" },
-    { "value": "95%", "label": "Người dùng hài lòng", "color": "#7c3aed" },
-    { "value": "2 phút", "label": "Tiết kiệm mỗi tác vụ", "color": "#10b981" }
-  ]
-}
+3. "stat" — số liệu (4–6s)
+{ "id":"s3","type":"stat","duration":5,"background":"gradient:#0a0a1a,#0d1b2a",
+  "title":{"content":"Kết quả","fontSize":44,"fontWeight":"bold","color":"#fff"},
+  "stats":[
+    {"value":"10x","label":"Tăng năng suất","color":"#00d4ff"},
+    {"value":"95%","label":"Hài lòng","color":"#7c3aed"}
+  ] }
 
-4. TYPE "quote" — trích dẫn, câu nói ấn tượng ← DÙNG ĐỂ NHẤN MẠNH Ý TƯỞNG QUAN TRỌNG
-{
-  "id": "scene-4", "type": "quote", "duration": 5,
-  "background": "gradient:#1a0a0a,#2d1b00",
-  "title": { "content": "Nội dung trích dẫn sâu sắc, không quá dài, gây ấn tượng mạnh", "fontSize": 46, "fontWeight": "bold", "color": "#fff", "align": "center" },
-  "subtitle": { "content": "Tên tác giả hoặc nguồn", "fontSize": 26, "color": "#fbbf24" }
-}
+4. "quote" — trích dẫn (3–5s)
+{ "id":"s4","type":"quote","duration":4,"background":"gradient:#1a0a0a,#2d1b00",
+  "title":{"content":"Câu nói ấn tượng ngắn gọn","fontSize":46,"fontWeight":"bold","color":"#fff","align":"center"},
+  "subtitle":{"content":"Tác giả","fontSize":26,"color":"#fbbf24"} }
 
-5. TYPE "timeline" — các bước, quy trình, lịch sử ← DÙNG KHI CÓ THỨ TỰ TUẦN TỰ
-{
-  "id": "scene-5", "type": "timeline", "duration": 8,
-  "background": "gradient:#0f1a0f,#0a1a1a",
-  "title": { "content": "3 Bước Thực Hiện", "fontSize": 50, "fontWeight": "bold", "color": "#fff" },
-  "steps": [
-    { "number": 1, "title": "Bước đầu tiên", "description": "Mô tả ngắn về bước này" },
-    { "number": 2, "title": "Bước thứ hai", "description": "Mô tả ngắn về bước này" },
-    { "number": 3, "title": "Bước cuối cùng", "description": "Mô tả ngắn về bước này" }
-  ]
-}
+5. "timeline" — các bước (5–8s tùy số bước)
+{ "id":"s5","type":"timeline","duration":6,"background":"gradient:#0f1a0f,#0a1a1a",
+  "title":{"content":"Các bước","fontSize":50,"fontWeight":"bold","color":"#fff"},
+  "steps":[
+    {"number":1,"title":"Bước 1","description":"Mô tả ngắn"},
+    {"number":2,"title":"Bước 2","description":"Mô tả ngắn"},
+    {"number":3,"title":"Bước 3","description":"Mô tả ngắn"}
+  ] }
 
-6. TYPE "split" — so sánh 2 phía, trước/sau, vấn đề/giải pháp ← DÙNG KHI CẦN ĐỐI CHIẾU
-{
-  "id": "scene-6", "type": "split", "duration": 6,
-  "background": "gradient:#0d0d1a,#1a0d1a",
-  "title": { "content": "Trước & Sau", "fontSize": 46, "fontWeight": "bold", "color": "#fff", "align": "center" },
-  "splitLeft": {
-    "icon": "😓",
-    "title": "Vấn đề cũ",
-    "body": "Mô tả ngắn vấn đề",
-    "items": ["Điểm yếu 1", "Điểm yếu 2"]
-  },
-  "splitRight": {
-    "icon": "🚀",
-    "title": "Giải pháp mới",
-    "body": "Mô tả ngắn giải pháp",
-    "items": ["Ưu điểm 1", "Ưu điểm 2"]
-  }
-}
+6. "split" — so sánh 2 cột (4–5s)
+{ "id":"s6","type":"split","duration":4,"background":"gradient:#0d0d1a,#1a0d1a",
+  "title":{"content":"Trước & Sau","fontSize":46,"fontWeight":"bold","color":"#fff","align":"center"},
+  "splitLeft":{"icon":"😓","title":"Vấn đề","body":"Mô tả","items":["Điểm yếu 1","Điểm yếu 2"]},
+  "splitRight":{"icon":"🚀","title":"Giải pháp","body":"Mô tả","items":["Ưu điểm 1","Ưu điểm 2"]} }
 
-7. TYPE "text-animation" — slide text thông thường, trung gian
-{
-  "id": "scene-7", "type": "text-animation", "duration": 5,
-  "background": "gradient:#1a1a2e,#16213e",
-  "title": { "content": "Nội dung chính", "fontSize": 64, "fontWeight": "bold", "color": "#fff", "align": "center", "animation": "zoomIn" },
-  "subtitle": { "content": "Mô tả phụ", "fontSize": 28, "color": "#ffffffcc", "animation": "fadeIn", "animationDelay": 0.3 },
-  "body": { "content": "Nội dung chi tiết nếu cần", "fontSize": 22, "color": "#ffffff88", "animation": "fadeIn", "animationDelay": 0.6 }
-}
+7. "text-animation" — text đơn (3–4s)
+{ "id":"s7","type":"text-animation","duration":4,"background":"gradient:#1a1a2e,#16213e",
+  "title":{"content":"Nội dung chính","fontSize":64,"fontWeight":"bold","color":"#fff","align":"center","animation":"zoomIn"},
+  "subtitle":{"content":"Phụ đề","fontSize":28,"color":"#ffffffcc","animation":"fadeIn","animationDelay":0.3} }
 
-8. TYPE "outro" — màn hình kết thúc, CTA
-{
-  "id": "scene-last", "type": "outro", "duration": 4,
-  "background": "gradient:#0f3460,#1a1a2e",
-  "title": { "content": "Kết thúc / CTA mạnh", "fontSize": 64, "fontWeight": "bold", "color": "#fff", "align": "center", "animation": "zoomIn" },
-  "subtitle": { "content": "Hành động cụ thể cho viewer", "fontSize": 28, "color": "#ffffffcc", "animation": "fadeIn", "animationDelay": 0.4 }
-}
+8. "outro" — kết thúc (3–4s, CHỈ dùng khi cần)
+{ "id":"sN","type":"outro","duration":3,"background":"gradient:#0f3460,#1a1a2e",
+  "title":{"content":"CTA mạnh","fontSize":64,"fontWeight":"bold","color":"#fff","align":"center","animation":"zoomIn"},
+  "subtitle":{"content":"Hành động","fontSize":28,"color":"#fff","animation":"fadeIn","animationDelay":0.4} }
 
 ═══════════════════════════════════════════════
-HƯỚNG DẪN TẠO VIDEO SPEC:
+VÍ DỤ TÍNH THỜI LƯỢNG ĐÚNG:
 ═══════════════════════════════════════════════
 
-- YouTube 16:9: resolution = "1920x1080", duration = 45-180s, fps = 30
-- Social vertical (TikTok/Reels): resolution = "1080x1920", duration = 15-60s
-- Social square (Instagram): resolution = "1080x1080", duration = 15-45s
-- Tạo 5-10 scenes, đa dạng types — TRÁNH dùng toàn text-animation
-- Scene đầu LUÔN là "intro", scene cuối LUÔN là "outro"
-- Dùng "bullet-list" khi nội dung là danh sách, tips, tính năng
-- Dùng "stat" khi có số liệu, dữ liệu cần nhấn mạnh
-- Dùng "quote" cho câu nói ấn tượng, key message
-- Dùng "timeline" cho quy trình, các bước tuần tự
-- Dùng "split" cho so sánh, đối chiếu
-- Màu sắc phải đồng nhất, chuyên nghiệp — accent color nên nổi bật
-- Mỗi scene phải có ít nhất title hoặc dữ liệu tương ứng (bullets/stats/steps)
-- bullets/stats/steps phải có nội dung thực tế, chi tiết, liên quan đến yêu cầu`;
+Video "5 tips ngắn" → 5 scenes × ~4s = ~20s tổng:
+  scene 1 bullet-list(5 tips) 6s + scene 2 stat 5s + scene 3 quote 4s + scene 4 timeline 5s = 20s
+  → "duration": 20 ở root
+
+Video "giới thiệu sản phẩm" → có intro+outro → ~25s:
+  intro 3s + content 5s + features 6s + stats 5s + outro 3s = 22s
+  → "duration": 22
+
+RESOLUTION theo format:
+• YouTube/ngang: "1920x1080"
+• TikTok/dọc: "1080x1920"
+• Instagram vuông: "1080x1080"
+• HD nhỏ: "1280x720"`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGACY EXPORTS — kept for backward-compatibility with any other importers
+// New code should use promptService.ts instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** @deprecated Import from promptService.ts */
+export const SYSTEM_PROMPT = SYSTEM_PROMPT_DEFAULT;
+
+/** @deprecated Import from promptService.ts */
+export function buildVideoSpecPrompt(userPrompt: string): string {
+  return `Người dùng muốn tạo video với yêu cầu sau:\n"${userPrompt}"\n\n${buildVideoSpecSchemaPrompt()}`;
 }
 
 export function buildChatResponsePrompt(

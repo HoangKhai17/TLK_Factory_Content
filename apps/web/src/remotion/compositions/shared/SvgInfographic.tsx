@@ -2,7 +2,7 @@
  * Reusable animated SVG infographic primitives.
  * All animations driven by Remotion frame – no CSS animations.
  */
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { hexToRgba } from "./palette";
 
 // ─────────────────────────────────────────────
@@ -288,7 +288,50 @@ export function ConnectorLine({ height, color, startFrame = 0 }: ConnectorLinePr
 }
 
 // ─────────────────────────────────────────────
-// 6. Decorative hexagon grid (infographic bg)
+// 6. Animated number counter (count-up effect)
+// ─────────────────────────────────────────────
+interface AnimatedCounterProps {
+  /** Value string — numeric part counts up, suffix stays. E.g. "10x", "95%", "1,200" */
+  value: string;
+  startFrame?: number;
+  /** Duration in frames for the count (default: 1.2s) */
+  durationFrames?: number;
+}
+
+export function AnimatedCounter({ value, startFrame = 0, durationFrames }: AnimatedCounterProps) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const dur = durationFrames ?? Math.round(fps * 1.2);
+  const eff = Math.max(0, frame - startFrame);
+
+  // Match: optional sign, digits (with commas), optional decimal, then any suffix
+  const match = value.match(/^([+\-]?[\d,]+(?:\.\d+)?)(.*)$/);
+  if (!match) return <>{value}</>;
+
+  const rawStr  = match[1]!.replace(/,/g, "");
+  const suffix  = match[2] ?? "";
+  const target  = parseFloat(rawStr);
+  const isFloat = rawStr.includes(".");
+  const decimals = isFloat ? (rawStr.split(".")[1]?.length ?? 1) : 0;
+
+  const progress = interpolate(eff, [0, dur], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
+  });
+
+  const current = target * progress;
+  const display = isFloat
+    ? current.toFixed(decimals)
+    : current >= 1000
+      ? Math.round(current).toLocaleString("en-US")
+      : String(Math.round(current));
+
+  return <>{display}{suffix}</>;
+}
+
+// ─────────────────────────────────────────────
+// 7. Decorative hexagon grid (infographic bg)
 // ─────────────────────────────────────────────
 interface HexGridProps {
   color: string;

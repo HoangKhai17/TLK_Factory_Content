@@ -1,5 +1,5 @@
 import type { VideoSpec } from "@tlk/shared";
-import { buildVideoSpecPrompt, SYSTEM_PROMPT } from "@/lib/gemini/prompts";
+import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
 import type { AIMessage, AIProvider, VideoSpecResult } from "./types";
 
 export class OpenAIProvider implements AIProvider {
@@ -39,7 +39,7 @@ export class OpenAIProvider implements AIProvider {
 
   async chat(history: AIMessage[], newMessage: string): Promise<string> {
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: getSystemChatPrompt() },
       ...history.map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: newMessage },
     ];
@@ -49,7 +49,7 @@ export class OpenAIProvider implements AIProvider {
   async generateVideoSpec(userPrompt: string): Promise<VideoSpecResult> {
     // Step 1: friendly message
     const assistantMessage = await this.callAPI([
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: getSystemChatPrompt() },
       {
         role: "user",
         content: `Người dùng yêu cầu: "${userPrompt}"\n\nHãy xác nhận ngắn gọn (2-3 câu) rằng bạn đang tạo video theo yêu cầu. Không trả về JSON.`,

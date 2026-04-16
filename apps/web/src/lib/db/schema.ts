@@ -151,6 +151,22 @@ export const scriptScenes = sqliteTable("script_scenes", {
     .default(sql`(datetime('now'))`),
 });
 
+// === Prompt Templates ===
+export const promptTemplates = sqliteTable("prompt_templates", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  content: text("content").notNull(),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 export type ProjectRow = typeof projects.$inferSelect;
 export type VideoRow = typeof videos.$inferSelect;
 export type ChatMessageRow = typeof chatMessages.$inferSelect;
@@ -159,3 +175,4 @@ export type SessionRow = typeof sessions.$inferSelect;
 export type ApiConfigRow = typeof apiConfigs.$inferSelect;
 export type ScriptRow = typeof scripts.$inferSelect;
 export type ScriptSceneRow = typeof scriptScenes.$inferSelect;
+export type PromptTemplateRow = typeof promptTemplates.$inferSelect;

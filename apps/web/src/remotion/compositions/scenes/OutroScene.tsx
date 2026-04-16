@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene } from "@tlk/shared";
 import { BackgroundDecor } from "../shared/BackgroundDecor";
-import { hexToRgba, parseBackground, LAYOUT } from "../shared/palette";
+import { hexToRgba, parseBackground, useLayout } from "../shared/palette";
 import type { ColorPalette } from "../shared/palette";
 
 interface OutroSceneProps {
@@ -14,6 +14,7 @@ interface OutroSceneProps {
 export function OutroScene({ scene, accentColor, palette }: OutroSceneProps) {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
+  const layout = useLayout();
 
   const titleScale = spring({ frame, fps, config: { mass: 0.5, damping: 10 }, from: 0.6, to: 1 });
   const titleOpacity = interpolate(frame, [0, fps * 0.4], [0, 1], {
@@ -34,7 +35,7 @@ export function OutroScene({ scene, accentColor, palette }: OutroSceneProps) {
   const maxR = Math.max(width, height) * 0.7;
 
   return (
-    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 32 }}>
+    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), justifyContent: "center", alignItems: "center", flexDirection: "column", gap: Math.round(32 * layout.scale), overflow: "hidden" }}>
       <BackgroundDecor palette={palette} intensity={0.6} />
 
       {/* Expanding ripple rings */}
@@ -59,9 +60,9 @@ export function OutroScene({ scene, accentColor, palette }: OutroSceneProps) {
       {scene.subtitle && (
         <div style={{
           opacity: subOpacity, transform: `translateY(${subY}px)`,
-          padding: "16px 48px",
+          padding: `${Math.round(14 * layout.scale)}px ${Math.round(44 * layout.scale)}px`,
           background: `linear-gradient(135deg, ${accentColor}, ${palette.primary})`,
-          borderRadius: 100, fontSize: scene.subtitle.fontSize ?? LAYOUT.subtitleSize,
+          borderRadius: 100, fontSize: scene.subtitle.fontSize ?? layout.subtitleSize,
           fontWeight: "bold", color: "#ffffff",
           boxShadow: `0 8px 32px ${hexToRgba(accentColor, 0.4)}`, letterSpacing: "0.02em",
         }}>

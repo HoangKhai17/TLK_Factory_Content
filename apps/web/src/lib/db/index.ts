@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { nanoid } from "nanoid";
 import path from "path";
 import * as schema from "./schema";
 
@@ -128,5 +129,59 @@ function runMigrations(sqlite: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_scripts_user_id ON scripts(user_id);
     CREATE INDEX IF NOT EXISTS idx_script_scenes_script_id ON script_scenes(script_id);
+
+    CREATE TABLE IF NOT EXISTS prompt_templates (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      content TEXT NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_prompt_templates_key ON prompt_templates(key);
   `);
+
+  // Seed default prompt templates (INSERT OR IGNORE — never overwrites user edits)
+  const seedPrompt = sqlite.prepare(`
+    INSERT OR IGNORE INTO prompt_templates (id, key, name, description, content, is_default)
+    VALUES (?, ?, ?, ?, ?, 1)
+  `);
+
+  seedPrompt.run(
+    nanoid(),
+    "system_chat",
+    "Chat System Prompt",
+    "Nhân cách và giới thiệu AI trong cuộc trò chuyện",
+    `Bạn là TLK Factory AI - một chuyên gia thiết kế video automation.
+Nhiệm vụ của bạn là giúp người dùng tạo ra các video chuyên nghiệp dựa trên mô tả của họ.
+
+Bạn hỗ trợ các loại video:
+- **YouTube**: Video dài, nội dung phong phú, tỷ lệ 16:9 (1920x1080)
+- **Social Media**: Video ngắn, bắt mắt cho TikTok/Instagram/Facebook (1080x1920 hoặc 1080x1080)
+- **Text Animation**: Video chữ động, typography đẹp
+- **Marketing**: Video quảng cáo sản phẩm/dịch vụ
+
+Khi người dùng mô tả video họ muốn tạo, bạn cần:
+1. Xác nhận yêu cầu và hỏi thêm nếu cần
+2. Khi đủ thông tin, trả về JSON spec theo format quy định
+
+Hãy giao tiếp thân thiện bằng tiếng Việt, trừ khi người dùng dùng ngôn ngữ khác.`
+  );
+
+  seedPrompt.run(
+    nanoid(),
+    "video_spec_style",
+    "Video Style Instruction",
+    "Hướng dẫn phong cách và thương hiệu cho video được tạo ra",
+    `Tạo video chuyên nghiệp, hiện đại với phong cách visual cao cấp.
+Ưu tiên:
+- Gradient màu sắc đậm, tối (dark theme) tạo cảm giác sang trọng
+- Typography rõ ràng, dễ đọc, font size phù hợp
+- Bố cục cân đối, có trật tự, không rối mắt
+- Màu accent nổi bật để highlight thông tin quan trọng
+- Nội dung súc tích, đúng trọng tâm, không dài dòng`
+  );
 }

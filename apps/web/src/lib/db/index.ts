@@ -38,6 +38,8 @@ function runMigrations(sqlite: Database.Database) {
       title TEXT NOT NULL,
       prompt TEXT NOT NULL,
       spec TEXT,
+      generation_mode TEXT NOT NULL DEFAULT 'template',
+      generated_code TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
       output_path TEXT,
       thumbnail_path TEXT,
@@ -46,6 +48,7 @@ function runMigrations(sqlite: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
 
     CREATE TABLE IF NOT EXISTS chat_messages (
       id TEXT PRIMARY KEY,
@@ -143,6 +146,14 @@ function runMigrations(sqlite: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_prompt_templates_key ON prompt_templates(key);
   `);
+
+  // Safe column additions (ignored if already exist)
+  for (const ddl of [
+    "ALTER TABLE videos ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'template'",
+    "ALTER TABLE videos ADD COLUMN generated_code TEXT",
+  ]) {
+    try { sqlite.exec(ddl); } catch { /* column already exists */ }
+  }
 
   // Seed default prompt templates (INSERT OR IGNORE — never overwrites user edits)
   const seedPrompt = sqlite.prepare(`

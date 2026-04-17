@@ -128,12 +128,22 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
             </div>
           </div>
 
-          {/* Type badge */}
-          {typeInfo && (
-            <span className={cn("inline-block text-[11px] font-medium px-2 py-0.5 rounded-full mb-2", typeInfo.bg, typeInfo.color)}>
-              {typeInfo.label}
-            </span>
-          )}
+          {/* Type / Mode badges */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            {video.generationMode === "ai-code" && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#F5F3FF] text-[#7C3AED]">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                AI Code
+              </span>
+            )}
+            {typeInfo && (
+              <span className={cn("inline-block text-[11px] font-medium px-2 py-0.5 rounded-full", typeInfo.bg, typeInfo.color)}>
+                {typeInfo.label}
+              </span>
+            )}
+          </div>
 
           <p className="text-xs text-[#94A3B8] mb-4 line-clamp-2">{video.prompt}</p>
 

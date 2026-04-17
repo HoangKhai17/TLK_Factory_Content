@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { VideoSpec } from "@tlk/shared";
 import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
-import type { AIMessage, AIProvider, VideoSpecResult } from "./types";
+import { CODEGEN_SYSTEM_PROMPT } from "./codegenSystemPrompt";
+import type { AIMessage, AIProvider, VideoSpecResult, RemotionCodeResult } from "./types";
 
 // Models confirmed working — 1.5-pro and 1.5-flash were removed by Google in Oct 2025
 const VALID_GEMINI_MODELS = new Set([
@@ -98,6 +99,40 @@ export class GeminiProvider implements AIProvider {
     const spec = extractJSON<VideoSpec>(raw);
     return { spec, assistantMessage };
   }
+
+  async generateRemotionCode(userPrompt: string): Promise<RemotionCodeResult> {
+    const chatModel = this.ai.getGenerativeModel({
+      model: this.model,
+      systemInstruction: getSystemChatPrompt(),
+      generationConfig: { temperature: 0.8, maxOutputTokens: 256 },
+    });
+    const assistantMessage = await withRetry(async () => {
+      const res = await chatModel.generateContent(
+        `Người dùng yêu cầu tạo video motion graphics: "${userPrompt}"\n\nXác nhận ngắn gọn bạn đang tạo video với code Remotion tùy chỉnh. Không trả về code.`
+      );
+      return res.response.text() || "Đang tạo video motion graphics với AI code...";
+    });
+
+    const codeModel = this.ai.getGenerativeModel({
+      model: this.model,
+      systemInstruction: CODEGEN_SYSTEM_PROMPT,
+      generationConfig: { temperature: 0.6, topP: 0.95, maxOutputTokens: 16384 },
+    });
+    const raw = await withRetry(() =>
+      codeModel.generateContent(
+        `Create a Remotion video component for: ${userPrompt}\n\nReturn ONLY the code starting with // META:{...}`
+      ).then((r) => r.response.text())
+    );
+    const code = extractCode(raw);
+    return { code, assistantMessage };
+  }
+}
+
+function extractCode(raw: string): string {
+  // Strip markdown fences if present
+  const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/);
+  const code = fenced ? (fenced[1] ?? raw).trim() : raw.trim();
+  return code;
 }
 
 function extractJSON<T>(raw: string): T {

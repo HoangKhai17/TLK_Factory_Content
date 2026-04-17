@@ -27,11 +27,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!video.spec) {
-      return NextResponse.json(
-        { error: "Video spec not found" },
-        { status: 400 }
-      );
+    if (video.generationMode === "ai-code") {
+      if (!video.generatedCode) {
+        return NextResponse.json({ error: "Generated code not found" }, { status: 400 });
+      }
+    } else {
+      if (!video.spec) {
+        return NextResponse.json({ error: "Video spec not found" }, { status: 400 });
+      }
     }
 
     // Update status to rendering and clear previous error
@@ -40,10 +43,13 @@ export async function POST(request: NextRequest) {
       .where(eq(videos.id, videoId))
       .run();
 
-    const spec: VideoSpec = JSON.parse(video.spec);
-
     // Render in background (non-blocking response)
-    renderInBackground(videoId, spec);
+    if (video.generationMode === "ai-code") {
+      renderCodeInBackground(videoId, video.generatedCode!);
+    } else {
+      const spec: VideoSpec = JSON.parse(video.spec!);
+      renderInBackground(videoId, spec);
+    }
 
     return NextResponse.json({
       message: "Rendering started",
@@ -53,6 +59,34 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("POST /api/render error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function renderCodeInBackground(videoId: string, code: string) {
+  const db = getDb();
+  try {
+    const { renderGeneratedCode } = await import("@/lib/renderer/codeRenderer");
+    const result = await renderGeneratedCode(videoId, code, (progress) => {
+      console.log(`[${videoId}] Code render progress: ${progress}%`);
+    });
+
+    db.update(videos)
+      .set({
+        status: "completed",
+        outputPath: result.outputPath,
+        thumbnailPath: result.thumbnailPath,
+        durationSeconds: result.durationSeconds,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(videos.id, videoId))
+      .run();
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[${videoId}] Code render failed:`, error);
+    db.update(videos)
+      .set({ status: "failed", errorMessage: errorMsg, updatedAt: new Date().toISOString() })
+      .where(eq(videos.id, videoId))
+      .run();
   }
 }
 

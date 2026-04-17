@@ -13,6 +13,12 @@ export interface VideoSpecResult {
 export interface AIProvider {
   chat(history: AIMessage[], newMessage: string): Promise<string>;
   generateVideoSpec(userPrompt: string): Promise<VideoSpecResult>;
+  generateRemotionCode(userPrompt: string): Promise<RemotionCodeResult>;
+}
+
+export interface RemotionCodeResult {
+  code: string;
+  assistantMessage: string;
 }
 
 export type ProviderType = "gemini" | "openai" | "anthropic";

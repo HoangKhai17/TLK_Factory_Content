@@ -27,6 +27,8 @@ export const videos = sqliteTable("videos", {
   title: text("title").notNull(),
   prompt: text("prompt").notNull(),
   spec: text("spec"), // JSON string of VideoSpec
+  generationMode: text("generation_mode", { enum: ["template", "ai-code"] }).notNull().default("template"),
+  generatedCode: text("generated_code"), // TSX source code when mode=ai-code
   status: text("status", {
     enum: ["pending", "generating", "rendering", "completed", "failed"],
   })

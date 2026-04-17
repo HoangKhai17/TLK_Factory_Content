@@ -1,6 +1,7 @@
 import type { VideoSpec } from "@tlk/shared";
 import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
-import type { AIMessage, AIProvider, VideoSpecResult } from "./types";
+import { CODEGEN_SYSTEM_PROMPT } from "./codegenSystemPrompt";
+import type { AIMessage, AIProvider, VideoSpecResult, RemotionCodeResult } from "./types";
 
 export class AnthropicProvider implements AIProvider {
   private apiKey: string;
@@ -73,6 +74,28 @@ export class AnthropicProvider implements AIProvider {
     const spec = extractJSON<VideoSpec>(raw);
     return { spec, assistantMessage };
   }
+
+  async generateRemotionCode(userPrompt: string): Promise<RemotionCodeResult> {
+    const assistantMessage = await this.callAPI(
+      [{ role: "user", content: `Người dùng yêu cầu tạo video motion graphics: "${userPrompt}"\n\nXác nhận ngắn gọn bạn đang tạo video với code Remotion tùy chỉnh. Không trả về code.` }],
+      getSystemChatPrompt(),
+      256,
+    );
+
+    const raw = await this.callAPI(
+      [{ role: "user", content: `Create a Remotion video component for: ${userPrompt}\n\nReturn ONLY the code starting with // META:{...}` }],
+      CODEGEN_SYSTEM_PROMPT,
+      16384,
+    );
+
+    const code = extractCode(raw);
+    return { code, assistantMessage };
+  }
+}
+
+function extractCode(raw: string): string {
+  const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/);
+  return fenced ? (fenced[1] ?? raw).trim() : raw.trim();
 }
 
 function extractJSON<T>(raw: string): T {

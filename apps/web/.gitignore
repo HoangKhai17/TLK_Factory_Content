@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI-generated Remotion components (transient, created and deleted at render time)
+/src/remotion/code-gen/

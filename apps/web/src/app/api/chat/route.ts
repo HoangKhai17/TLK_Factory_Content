@@ -29,10 +29,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as {
       projectId: string;
       message: string;
-      provider?: string;   // optional override
-      model?: string;      // optional override
+      provider?: string;
+      model?: string;
+      generationMode?: "template" | "ai-code";
     };
-    const { projectId, message, provider, model } = body;
+    const { projectId, message, provider, model, generationMode = "template" } = body;
 
     if (!projectId || !message?.trim()) {
       return NextResponse.json(
@@ -72,29 +73,54 @@ export async function POST(request: NextRequest) {
     let videoId: string | null = null;
 
     if (isVideoCreationRequest(message)) {
-      // Generate video spec via active AI provider
-      const { spec, assistantMessage } = await ai.generateVideoSpec(message);
-
       videoId = nanoid();
-      db.insert(videos)
-        .values({
-          id: videoId,
-          projectId,
-          title: spec.title,
-          prompt: message,
-          spec: JSON.stringify(spec),
-          status: "pending",
-        })
-        .run();
+
+      if (generationMode === "ai-code") {
+        // AI Code Generation mode: AI writes Remotion JSX
+        const { code, assistantMessage } = await ai.generateRemotionCode(message);
+        const { validateGeneratedCode, parseCodeMeta } = await import("@/lib/ai/codeValidator");
+        const validation = validateGeneratedCode(code);
+        if (!validation.valid) throw new Error(`Code validation failed: ${validation.error}`);
+        const meta = parseCodeMeta(code);
+
+        db.insert(videos)
+          .values({
+            id: videoId,
+            projectId,
+            title: meta.title,
+            prompt: message,
+            generationMode: "ai-code",
+            generatedCode: code,
+            status: "pending",
+          })
+          .run();
+
+        assistantContent = assistantMessage +
+          `\n\n✅ **Motion graphics code đã được tạo!** Nhấn **Render** để bắt đầu render video MP4.`;
+      } else {
+        // Template mode: AI generates VideoSpec JSON
+        const { spec, assistantMessage } = await ai.generateVideoSpec(message);
+
+        db.insert(videos)
+          .values({
+            id: videoId,
+            projectId,
+            title: spec.title,
+            prompt: message,
+            spec: JSON.stringify(spec),
+            generationMode: "template",
+            status: "pending",
+          })
+          .run();
+
+        assistantContent = assistantMessage +
+          `\n\n✅ **Video spec đã được tạo!** Nhấn **Render** để bắt đầu tạo video MP4.`;
+      }
 
       db.update(projects)
         .set({ updatedAt: new Date().toISOString() })
         .where(eq(projects.id, projectId))
         .run();
-
-      assistantContent =
-        assistantMessage +
-        `\n\n✅ **Video spec đã được tạo!** Nhấn **Render** để bắt đầu tạo video MP4.`;
     } else {
       // Normal chat
       const aiHistory = history

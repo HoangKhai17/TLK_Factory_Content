@@ -137,6 +137,8 @@ export interface VideoRecord {
   title: string;
   prompt: string;
   spec: string | null;  // JSON-serialized VideoSpec
+  generationMode: "template" | "ai-code";
+  generatedCode: string | null;
   status: VideoStatus;
   outputPath: string | null;
   thumbnailPath: string | null;

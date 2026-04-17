@@ -46,13 +46,16 @@ export async function POST(
     const promptResults = await generateScenePrompts(videoScript, user.id);
 
     // Map by sceneId and update DB
-    const promptMap = new Map(promptResults.map((p) => [p.sceneId, p.videoPrompt]));
+    const promptMap = new Map(promptResults.map((p) => [p.sceneId, p]));
 
     for (const scene of scenes) {
-      const prompt = promptMap.get(scene.id);
-      if (prompt) {
+      const result = promptMap.get(scene.id);
+      if (result?.videoPrompt) {
         db.update(scriptScenes)
-          .set({ videoPrompt: prompt })
+          .set({
+            videoPrompt: result.videoPrompt,
+            animationType: result.animationType ?? null,
+          })
           .where(eq(scriptScenes.id, scene.id))
           .run();
       }

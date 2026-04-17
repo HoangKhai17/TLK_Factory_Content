@@ -59,7 +59,16 @@ registerRoot(RemotionRoot);
 
   const bundleLocation = await bundle({
     entryPoint: entryPath,
-    webpackOverride: (config) => config,
+    webpackOverride: (config) => ({
+      ...config,
+      resolve: {
+        ...config.resolve,
+        alias: {
+          ...(config.resolve?.alias as Record<string, string> | undefined),
+          "@tlk/motion": path.join(process.cwd(), "src", "remotion", "lib", "index.tsx"),
+        },
+      },
+    }),
     enableCaching: false,
   });
 

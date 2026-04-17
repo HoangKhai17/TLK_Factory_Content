@@ -1,4 +1,5 @@
 import type { VideoSpec } from "@tlk/shared";
+import type { VideoAnimationType } from "./codegenSystemPrompt";
 
 export interface AIMessage {
   role: "user" | "assistant";
@@ -13,7 +14,7 @@ export interface VideoSpecResult {
 export interface AIProvider {
   chat(history: AIMessage[], newMessage: string): Promise<string>;
   generateVideoSpec(userPrompt: string): Promise<VideoSpecResult>;
-  generateRemotionCode(userPrompt: string): Promise<RemotionCodeResult>;
+  generateRemotionCode(userPrompt: string, videoType?: VideoAnimationType | null): Promise<RemotionCodeResult>;
 }
 
 export interface RemotionCodeResult {
@@ -31,10 +32,12 @@ export const PROVIDER_NAMES: Record<ProviderType, string> = {
 
 export const PROVIDER_MODELS: Record<ProviderType, { id: string; name: string }[]> = {
   gemini: [
-    { id: "gemini-2.5-pro",        name: "Gemini 2.5 Pro (Thinking)" },
-    { id: "gemini-2.5-flash",      name: "Gemini 2.5 Flash (Thinking)" },
-    { id: "gemini-2.0-flash",      name: "Gemini 2.0 Flash" },
-    { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite (Nhanh nhất)" },
+    { id: "gemini-2.5-pro",         name: "Gemini 2.5 Pro ✦ (Tốt nhất — cần Paid)" },
+    { id: "gemini-2.5-flash",       name: "Gemini 2.5 Flash ✦ (Thinking — cần Paid)" },
+    { id: "gemini-2.5-flash-lite",  name: "Gemini 2.5 Flash Lite (Nhanh — cần Paid)" },
+    { id: "gemini-2.0-flash",       name: "Gemini 2.0 Flash (Khuyến nghị)" },
+    { id: "gemini-2.0-flash-lite",  name: "Gemini 2.0 Flash Lite (Nhanh nhất, miễn phí)" },
+    { id: "gemini-2.0-pro-exp",     name: "Gemini 2.0 Pro Exp (Thử nghiệm)" },
   ],
   openai: [
     { id: "gpt-4o", name: "GPT-4o" },

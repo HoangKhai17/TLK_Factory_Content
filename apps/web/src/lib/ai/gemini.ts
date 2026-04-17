@@ -1,15 +1,21 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { VideoSpec } from "@tlk/shared";
 import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
-import { CODEGEN_SYSTEM_PROMPT } from "./codegenSystemPrompt";
+import { getTypeCodegenPrompt } from "./codegenSystemPrompt";
+import type { VideoAnimationType } from "./codegenSystemPrompt";
 import type { AIMessage, AIProvider, VideoSpecResult, RemotionCodeResult } from "./types";
 
-// Models confirmed working — 1.5-pro and 1.5-flash were removed by Google in Oct 2025
+// Gemini models — update this list as Google releases new versions
+// gemini-1.5-x were removed Oct 2025; gemini-2.5-x require Paid tier / project approval
 const VALID_GEMINI_MODELS = new Set([
+  // Gemini 2.5 (latest, thinking models — requires billing/approved project)
   "gemini-2.5-pro",
   "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  // Gemini 2.0 (stable, free tier available)
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite",
+  "gemini-2.0-pro-exp",
 ]);
 
 const FALLBACK_MODEL = "gemini-2.0-flash";
@@ -100,7 +106,7 @@ export class GeminiProvider implements AIProvider {
     return { spec, assistantMessage };
   }
 
-  async generateRemotionCode(userPrompt: string): Promise<RemotionCodeResult> {
+  async generateRemotionCode(userPrompt: string, videoType?: VideoAnimationType | null): Promise<RemotionCodeResult> {
     const chatModel = this.ai.getGenerativeModel({
       model: this.model,
       systemInstruction: getSystemChatPrompt(),
@@ -115,7 +121,7 @@ export class GeminiProvider implements AIProvider {
 
     const codeModel = this.ai.getGenerativeModel({
       model: this.model,
-      systemInstruction: CODEGEN_SYSTEM_PROMPT,
+      systemInstruction: getTypeCodegenPrompt(videoType ?? null),
       generationConfig: { temperature: 0.6, topP: 0.95, maxOutputTokens: 16384 },
     });
     const raw = await withRetry(() =>

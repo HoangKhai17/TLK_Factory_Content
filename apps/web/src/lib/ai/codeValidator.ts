@@ -4,7 +4,6 @@ export interface ValidationResult {
   sanitizedCode?: string;
 }
 
-const ALLOWED_IMPORTS = /^import\s+.*\s+from\s+["'](react|remotion)["']/;
 const FORBIDDEN_PATTERNS = [
   /\beval\s*\(/,
   /\bnew\s+Function\s*\(/,
@@ -46,13 +45,12 @@ export function validateGeneratedCode(code: string): ValidationResult {
     return { valid: false, error: "META JSON is not valid" };
   }
 
-  // Check all import lines
-  const importLines = code.match(/^import\s+.+$/gm) ?? [];
-  for (const line of importLines) {
-    if (!ALLOWED_IMPORTS.test(line)) {
-      const pkgMatch = line.match(/from\s+["']([^"']+)["']/);
-      const pkg = pkgMatch?.[1] ?? "unknown";
-      return { valid: false, error: `Import from "${pkg}" is not allowed. Only "react" and "remotion" are permitted.` };
+  // Check all from "..." statements — handles single-line AND multi-line imports
+  const fromMatches = code.matchAll(/\bfrom\s+["']([^"']+)["']/g);
+  for (const match of fromMatches) {
+    const pkg = match[1] ?? "";
+    if (pkg !== "react" && pkg !== "remotion" && pkg !== "@tlk/motion") {
+      return { valid: false, error: `Import from "${pkg}" is not allowed. Only "react", "remotion", and "@tlk/motion" are permitted.` };
     }
   }
 

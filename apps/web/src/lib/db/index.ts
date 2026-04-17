@@ -151,6 +151,8 @@ function runMigrations(sqlite: Database.Database) {
   for (const ddl of [
     "ALTER TABLE videos ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'template'",
     "ALTER TABLE videos ADD COLUMN generated_code TEXT",
+    "ALTER TABLE scripts ADD COLUMN video_mode TEXT NOT NULL DEFAULT 'animation'",
+    "ALTER TABLE script_scenes ADD COLUMN animation_type TEXT",
   ]) {
     try { sqlite.exec(ddl); } catch { /* column already exists */ }
   }

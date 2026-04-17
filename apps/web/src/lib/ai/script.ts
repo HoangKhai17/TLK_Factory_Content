@@ -23,8 +23,27 @@ export interface VideoScript {
 
 export interface ScenePromptResult {
   sceneId: string;
-  videoPrompt: string; // ready to feed into generateVideoSpec()
+  videoPrompt: string;    // ready to feed into generateRemotionCode()
+  animationType: string;  // VideoAnimationType recommended for this scene
 }
+
+// Animation types available in the system
+const ANIMATION_TYPES_GUIDE = `
+Available animation types (pick the BEST one per scene):
+- "motion-graphics"    — fluid shapes, geometric, cinematic transitions
+- "kinetic-typography" — text-driven, words fly/bounce/reveal dramatically
+- "infographic"        — animated charts, counters, data visualization
+- "logo-animation"     — brand/logo reveal, draw-on effect, particle burst
+- "flat-3d"            — CSS 3D transforms, card flips, isometric layers
+- "neon-cyberpunk"     — dark bg, neon glow, scanlines, RGB split, particles
+
+Scene type → typical best match:
+- hook     → kinetic-typography or neon-cyberpunk (grab attention)
+- intro    → motion-graphics or flat-3d (set the tone)
+- content  → infographic or motion-graphics (communicate data/info)
+- cta      → kinetic-typography or logo-animation (clear call to action)
+- outro    → logo-animation or motion-graphics (brand recall)
+`;
 
 // ── Script generation ──────────────────────────────────────────
 export async function generateVideoScript(
@@ -80,21 +99,17 @@ export async function generateScenePrompts(
 ): Promise<ScenePromptResult[]> {
   const ai = getAIProvider(userId);
 
-  const prompt = `Bạn là chuyên gia tạo video animation cho TLK Factory Content.
+  const prompt = `Bạn là chuyên gia tạo video animation cho TLK Factory Content. Hệ thống sử dụng Remotion để render animation code.
 
-Dưới đây là kịch bản video đã được viết:
+Kịch bản video:
 Tiêu đề: "${script.title}"
 Phong cách visual: "${script.style}"
 Theme màu: "${script.colorTheme}"
 Tổng thời lượng: ${script.totalDuration}s
 
-Hãy tạo prompt video animation chi tiết cho từng scene, đảm bảo:
-- Phong cách nhất quán xuyên suốt
-- Mỗi scene có animation riêng phù hợp với nội dung
-- Prompts tương thích với hệ thống TLK Factory (Remotion-based)
-- Liên kết chặt chẽ về màu sắc, font, và nhịp điệu
+${ANIMATION_TYPES_GUIDE}
 
-Các scenes cần tạo prompt:
+Hãy tạo video prompt chi tiết VÀ chọn animation type phù hợp nhất cho từng scene:
 ${script.scenes
   .map(
     (s, i) => `
@@ -104,12 +119,18 @@ Gợi ý visual: ${s.visualNotes}`
   )
   .join("\n")}
 
+Yêu cầu prompt:
+- Phong cách nhất quán xuyên suốt (màu, font, nhịp điệu)
+- Mô tả rõ: text hiển thị, màu sắc hex, loại animation, nhịp điệu, transitions
+- Phải compatible với Remotion (React-based renderer)
+
 Trả về JSON (không markdown):
 {
   "scenePrompts": [
     {
       "sceneId": "scene-1",
-      "videoPrompt": "Tạo video [type] animation [duration]s: [mô tả chi tiết về chữ, màu sắc, animation, nhịp điệu, font, hiệu ứng chuyển cảnh...]"
+      "animationType": "kinetic-typography",
+      "videoPrompt": "Tạo video [type] animation [duration]s: [mô tả chi tiết về chữ, màu hex, animation, nhịp điệu, font, hiệu ứng...]"
     }
   ]
 }`;

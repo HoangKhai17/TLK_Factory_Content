@@ -116,6 +116,7 @@ export const scripts = sqliteTable("scripts", {
   ideaText: text("idea_text"),
   youtubeUrls: text("youtube_urls"),  // JSON string[]
   fullScript: text("full_script"),    // JSON VideoScript
+  videoMode: text("video_mode", { enum: ["animation", "slideshow"] }).notNull().default("animation"),
   status: text("status", {
     enum: ["draft", "script-ready", "prompts-ready", "rendering", "completed"],
   })
@@ -141,7 +142,8 @@ export const scriptScenes = sqliteTable("script_scenes", {
   duration: integer("duration").notNull().default(10), // seconds
   content: text("content"),      // script text for this scene
   visualNotes: text("visual_notes"),
-  videoPrompt: text("video_prompt"),  // AI-generated animation prompt
+  videoPrompt: text("video_prompt"),     // AI-generated animation prompt
+  animationType: text("animation_type"), // Recommended VideoAnimationType for this scene
   videoId: text("video_id").references(() => videos.id),
   renderStatus: text("render_status", {
     enum: ["pending", "queued", "rendering", "completed", "failed"],

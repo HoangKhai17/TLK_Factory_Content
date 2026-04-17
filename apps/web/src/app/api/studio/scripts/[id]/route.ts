@@ -48,6 +48,7 @@ export async function PATCH(
     title?: string;
     ideaText?: string;
     youtubeUrls?: string[];
+    videoMode?: "animation" | "slideshow";
     status?: "draft" | "script-ready" | "prompts-ready" | "rendering" | "completed";
   };
 
@@ -56,6 +57,7 @@ export async function PATCH(
       ...(body.title !== undefined && { title: body.title }),
       ...(body.ideaText !== undefined && { ideaText: body.ideaText }),
       ...(body.youtubeUrls !== undefined && { youtubeUrls: JSON.stringify(body.youtubeUrls) }),
+      ...(body.videoMode !== undefined && { videoMode: body.videoMode }),
       ...(body.status !== undefined && { status: body.status }),
       updatedAt: new Date().toISOString(),
     })

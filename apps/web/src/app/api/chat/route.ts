@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
       provider?: string;
       model?: string;
       generationMode?: "template" | "ai-code";
+      videoType?: string | null;
     };
-    const { projectId, message, provider, model, generationMode = "template" } = body;
+    const { projectId, message, provider, model, generationMode = "template", videoType = null } = body;
 
     if (!projectId || !message?.trim()) {
       return NextResponse.json(
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
 
       if (generationMode === "ai-code") {
         // AI Code Generation mode: AI writes Remotion JSX
-        const { code, assistantMessage } = await ai.generateRemotionCode(message);
+        const { code, assistantMessage } = await ai.generateRemotionCode(message, videoType as import("@/lib/ai/codegenSystemPrompt").VideoAnimationType | null);
         const { validateGeneratedCode, parseCodeMeta } = await import("@/lib/ai/codeValidator");
         const validation = validateGeneratedCode(code);
         if (!validation.valid) throw new Error(`Code validation failed: ${validation.error}`);

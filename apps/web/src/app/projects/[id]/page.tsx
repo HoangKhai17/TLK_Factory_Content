@@ -5,7 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ChatInterface } from "@/components/chat/ChatInterface";
+import { ModelSwitcher, useActiveModel } from "@/components/chat/ModelSwitcher";
 import { VideoCard } from "@/components/video/VideoCard";
+import { PROVIDER_MODELS } from "@/lib/ai/types";
 import type { Project, VideoRecord, ChatMessage } from "@tlk/shared";
 
 interface ProjectPageData {
@@ -25,6 +27,7 @@ export default function ProjectPage({
   const [data, setData] = useState<ProjectPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("chat");
+  const [activeModel, setActiveModel] = useActiveModel();
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -65,12 +68,10 @@ export default function ProjectPage({
         if (!prev) return prev;
         const toAdd = [userMsg, assistantMsg].filter(Boolean) as ChatMessage[];
         if (videoId) {
-          // Fetch updated video list in background — no tab switch
           fetch(`/api/projects/${id}`)
             .then((r) => r.json() as Promise<ProjectPageData>)
             .then((d) => setData((curr) => (curr ? { ...curr, videos: d.videos } : curr)));
         }
-        // Deduplicate: replace optimistic user message when real assistant arrives
         const existing = prev.messages.filter(
           (m) => !toAdd.some((a) => a.id === m.id)
         );
@@ -106,6 +107,11 @@ export default function ProjectPage({
       );
     }
   }
+
+  // Resolve current model label for display
+  const modelLabel = activeModel
+    ? (PROVIDER_MODELS[activeModel.provider]?.find((m) => m.id === activeModel.model)?.name ?? activeModel.model)
+    : null;
 
   // ── Loading ──────────────────────────────────────────────
   if (loading) {
@@ -148,25 +154,15 @@ export default function ProjectPage({
   return (
     <div className="flex h-screen bg-[#F8FAFF] overflow-hidden">
 
-      {/* ╔══════════════════════════════╗ */}
-      {/* ║           SIDEBAR            ║ */}
-      {/* ╚══════════════════════════════╝ */}
+      {/* ── SIDEBAR ─────────────────────────────────────────── */}
       <aside className="w-60 shrink-0 flex flex-col bg-white border-r border-[#E2E8F0]">
 
         {/* Logo */}
         <div className="px-5 py-4 border-b border-[#F1F5F9]">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <Image
-              src="/logotlk.png"
-              alt="TLK"
-              width={32}
-              height={32}
-              className="rounded-lg object-contain"
-            />
+            <Image src="/logotlk.png" alt="TLK" width={32} height={32} className="rounded-lg object-contain" />
             <div>
-              <span className="font-bold text-[#0F172A] text-sm block leading-none">
-                TLK Factory
-              </span>
+              <span className="font-bold text-[#0F172A] text-sm block leading-none">TLK Factory</span>
               <span className="text-xs text-[#94A3B8] leading-none">Content Platform</span>
             </div>
           </Link>
@@ -174,9 +170,7 @@ export default function ProjectPage({
 
         {/* Current project */}
         <div className="px-5 py-4 border-b border-[#F1F5F9]">
-          <p className="text-[10px] text-[#94A3B8] uppercase tracking-widest font-semibold mb-2">
-            Project hiện tại
-          </p>
+          <p className="text-[10px] text-[#94A3B8] uppercase tracking-widest font-semibold mb-2">Project hiện tại</p>
           <div className="flex items-start gap-2">
             <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] flex items-center justify-center shrink-0 mt-0.5">
               <svg className="w-4 h-4 text-[#3A5AF7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,9 +178,7 @@ export default function ProjectPage({
               </svg>
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-[#0F172A] text-sm leading-tight truncate">
-                {project.name}
-              </p>
+              <p className="font-semibold text-[#0F172A] text-sm leading-tight truncate">{project.name}</p>
               {project.description && (
                 <p className="text-xs text-[#94A3B8] mt-0.5 line-clamp-2">{project.description}</p>
               )}
@@ -196,15 +188,13 @@ export default function ProjectPage({
 
         {/* Video stats */}
         <div className="px-5 py-4 border-b border-[#F1F5F9]">
-          <p className="text-[10px] text-[#94A3B8] uppercase tracking-widest font-semibold mb-3">
-            Thống kê Video
-          </p>
+          <p className="text-[10px] text-[#94A3B8] uppercase tracking-widest font-semibold mb-3">Thống kê Video</p>
           <div className="space-y-2.5">
             {[
-              { label: "Tổng cộng", value: videos.length, color: "text-[#3A5AF7]", bg: "bg-[#EEF2FF]" },
-              { label: "Hoàn thành", value: completedCount, color: "text-[#10B981]", bg: "bg-[#ECFDF5]" },
-              { label: "Đang render", value: renderingCount, color: "text-[#06B3ED]", bg: "bg-[#E0F7FD]" },
-              { label: "Chờ render", value: pendingCount, color: "text-[#F59E0B]", bg: "bg-[#FFFBEB]" },
+              { label: "Tổng cộng",   value: videos.length,   color: "text-[#3A5AF7]",  bg: "bg-[#EEF2FF]" },
+              { label: "Hoàn thành",  value: completedCount,  color: "text-[#10B981]",  bg: "bg-[#ECFDF5]" },
+              { label: "Đang render", value: renderingCount,  color: "text-[#06B3ED]",  bg: "bg-[#E0F7FD]" },
+              { label: "Chờ render",  value: pendingCount,    color: "text-[#F59E0B]",  bg: "bg-[#FFFBEB]" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-center justify-between">
                 <span className="text-xs text-[#64748B]">{stat.label}</span>
@@ -276,30 +266,32 @@ export default function ProjectPage({
           </div>
           <div className="px-5 py-3">
             <p className="text-[10px] text-[#CBD5E1] leading-relaxed">
-              © {new Date().getFullYear()} <span className="tlk-gradient-text font-semibold">Nguyễn Hoàng Khải</span>
+              © {new Date().getFullYear()}{" "}
+              <span className="tlk-gradient-text font-semibold">Nguyễn Hoàng Khải</span>
             </p>
           </div>
         </div>
       </aside>
 
-      {/* ╔══════════════════════════════╗ */}
-      {/* ║         MAIN CONTENT         ║ */}
-      {/* ╚══════════════════════════════╝ */}
+      {/* ── MAIN CONTENT ────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top header bar */}
-        <header className="shrink-0 bg-white border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="font-semibold text-[#0F172A] text-[15px]">{project.name}</h1>
-            <span className="px-2.5 py-0.5 bg-[#F1F5F9] text-[#64748B] rounded-lg text-xs font-medium">
+        <header className="shrink-0 bg-white border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className="font-semibold text-[#0F172A] text-[15px] truncate">{project.name}</h1>
+            <span className="shrink-0 px-2.5 py-0.5 bg-[#F1F5F9] text-[#64748B] rounded-lg text-xs font-medium">
               {activeTab === "chat" ? "💬 Chat AI" : `🎬 ${videos.length} videos`}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Right: model switcher + status */}
+          <div className="flex items-center gap-3 shrink-0">
             {activeTab === "chat" && (
-              <p className="text-xs text-[#94A3B8]">
-                Powered by Gemini AI
-              </p>
+              <ModelSwitcher
+                value={activeModel}
+                onChange={setActiveModel}
+              />
             )}
             {activeTab === "videos" && pendingCount > 0 && (
               <span className="text-xs text-[#F59E0B] bg-[#FFFBEB] px-2.5 py-1 rounded-lg font-medium">
@@ -317,6 +309,9 @@ export default function ProjectPage({
               messages={messages}
               onMessageSent={handleMessageSent}
               onClearChat={handleClearChat}
+              provider={activeModel?.provider}
+              model={activeModel?.model}
+              modelLabel={modelLabel ?? undefined}
             />
           )}
 

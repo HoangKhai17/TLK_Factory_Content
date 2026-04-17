@@ -1,6 +1,7 @@
 import type { VideoSpec } from "@tlk/shared";
 import { getSystemChatPrompt, buildVideoSpecPrompt } from "@/lib/gemini/promptService";
-import { CODEGEN_SYSTEM_PROMPT } from "./codegenSystemPrompt";
+import { getTypeCodegenPrompt } from "./codegenSystemPrompt";
+import type { VideoAnimationType } from "./codegenSystemPrompt";
 import type { AIMessage, AIProvider, VideoSpecResult, RemotionCodeResult } from "./types";
 
 export class OpenAIProvider implements AIProvider {
@@ -67,14 +68,14 @@ export class OpenAIProvider implements AIProvider {
     return { spec, assistantMessage };
   }
 
-  async generateRemotionCode(userPrompt: string): Promise<RemotionCodeResult> {
+  async generateRemotionCode(userPrompt: string, videoType?: VideoAnimationType | null): Promise<RemotionCodeResult> {
     const assistantMessage = await this.callAPI([
       { role: "system", content: getSystemChatPrompt() },
-      { role: "user", content: `Người dùng yêu cầu tạo video motion graphics: "${userPrompt}"\n\nXác nhận ngắn gọn bạn đang tạo video với code Remotion tùy chỉnh. Không trả về code.` },
+      { role: "user", content: `Người dùng yêu cầu tạo video: "${userPrompt}"\n\nXác nhận ngắn gọn bạn đang tạo video với code Remotion tùy chỉnh. Không trả về code.` },
     ], 256);
 
     const raw = await this.callAPI([
-      { role: "system", content: CODEGEN_SYSTEM_PROMPT },
+      { role: "system", content: getTypeCodegenPrompt(videoType ?? null) },
       { role: "user", content: `Create a Remotion video component for: ${userPrompt}\n\nReturn ONLY the code starting with // META:{...}` },
     ], 16384);
 

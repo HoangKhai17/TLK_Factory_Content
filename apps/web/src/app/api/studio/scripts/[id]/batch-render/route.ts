@@ -4,8 +4,6 @@ import { nanoid } from "nanoid";
 import { getDb } from "@/lib/db";
 import { scripts, scriptScenes, projects, videos } from "@/lib/db/schema";
 import { getRequestUser } from "@/lib/auth/session";
-import { getAIProvider } from "@/lib/ai";
-import type { VideoSpec } from "@tlk/shared";
 
 export async function POST(
   request: NextRequest,
@@ -30,7 +28,7 @@ export async function POST(
     .where(eq(scriptScenes.scriptId, id))
     .orderBy(asc(scriptScenes.orderIndex))
     .all()
-    .filter((s) => s.videoPrompt); // only scenes with prompts
+    .filter((s) => s.videoPrompt);
 
   if (scenes.length === 0) {
     return NextResponse.json({ error: "Chưa có scene prompts. Hãy generate prompts trước." }, { status: 400 });
@@ -48,26 +46,15 @@ export async function POST(
       })
       .run();
 
-    // 2. Link project to script
+    // 2. Link project to script, set rendering status
     db.update(scripts)
       .set({ projectId, status: "rendering", updatedAt: new Date().toISOString() })
       .where(eq(scripts.id, id))
       .run();
 
-    // 3. For each scene: generate VideoSpec + create video record
-    const ai = getAIProvider(user.id);
+    // 3. Create video stubs (no code yet — code generated in background)
     const videoIds: string[] = [];
-
     for (const scene of scenes) {
-      let spec: VideoSpec;
-      try {
-        const result = await ai.generateVideoSpec(scene.videoPrompt!);
-        spec = result.spec;
-      } catch {
-        // If spec generation fails, use a minimal fallback spec
-        spec = buildFallbackSpec(scene);
-      }
-
       const videoId = nanoid();
       db.insert(videos)
         .values({
@@ -75,12 +62,11 @@ export async function POST(
           projectId,
           title: scene.title,
           prompt: scene.videoPrompt!,
-          spec: JSON.stringify(spec),
+          generationMode: "ai-code",
           status: "pending",
         })
         .run();
 
-      // Link video to scene
       db.update(scriptScenes)
         .set({ videoId, renderStatus: "queued" })
         .where(eq(scriptScenes.id, scene.id))
@@ -89,14 +75,19 @@ export async function POST(
       videoIds.push(videoId);
     }
 
-    // 4. Start batch render in background (sequential to avoid overwhelming CPU)
-    batchRenderBackground(videoIds, id);
+    // 4. Generate code + render each scene sequentially in background
+    batchRenderBackground(scenes.map((s, i) => ({
+      sceneId: s.id,
+      videoId: videoIds[i]!,
+      prompt: s.videoPrompt!,
+      animationType: s.animationType ?? null,
+    })), id, user.id);
 
     return NextResponse.json({
       ok: true,
       projectId,
       videoIds,
-      message: `Đang render ${videoIds.length} scenes. Chuyển đến project để xem tiến độ.`,
+      message: `Đang render ${videoIds.length} scenes. Theo dõi tiến độ trên trang này.`,
     });
   } catch (err) {
     console.error("batch-render error:", err);
@@ -105,36 +96,61 @@ export async function POST(
   }
 }
 
-// ── Background sequential render ──────────────────────────────
-async function batchRenderBackground(videoIds: string[], scriptId: string) {
+// ── Background: generate code then render, sequentially ──────
+interface SceneTask {
+  sceneId: string;
+  videoId: string;
+  prompt: string;
+  animationType: string | null;
+}
+
+async function batchRenderBackground(tasks: SceneTask[], scriptId: string, userId: string) {
   const db = getDb();
-  const { renderVideo } = await import("@/lib/renderer");
 
-  for (const videoId of videoIds) {
-    const video = db.select().from(videos).where(eq(videos.id, videoId)).get();
-    if (!video?.spec) continue;
-
-    // Update video + scene status
-    db.update(videos)
-      .set({ status: "rendering", updatedAt: new Date().toISOString() })
-      .where(eq(videos.id, videoId))
-      .run();
-
-    const scene = db
-      .select()
-      .from(scriptScenes)
-      .where(eq(scriptScenes.videoId, videoId))
-      .get();
-    if (scene) {
-      db.update(scriptScenes)
-        .set({ renderStatus: "rendering" })
-        .where(eq(scriptScenes.id, scene.id))
-        .run();
-    }
+  for (const task of tasks) {
+    const { sceneId, videoId, prompt, animationType } = task;
 
     try {
-      const spec: VideoSpec = JSON.parse(video.spec);
-      const result = await renderVideo({ videoId, spec });
+      // Step A — Generate code
+      db.update(videos)
+        .set({ status: "generating", updatedAt: new Date().toISOString() })
+        .where(eq(videos.id, videoId))
+        .run();
+      db.update(scriptScenes)
+        .set({ renderStatus: "rendering" })
+        .where(eq(scriptScenes.id, sceneId))
+        .run();
+
+      const { getAIProvider } = await import("@/lib/ai");
+      const { validateGeneratedCode, parseCodeMeta } = await import("@/lib/ai/codeValidator");
+      const { renderGeneratedCode } = await import("@/lib/renderer/codeRenderer");
+
+      const ai = getAIProvider(userId);
+      const { code } = await ai.generateRemotionCode(
+        prompt,
+        animationType as import("@/lib/ai/codegenSystemPrompt").VideoAnimationType | null
+      );
+
+      const validation = validateGeneratedCode(code);
+      if (!validation.valid) throw new Error(`Code invalid: ${validation.error}`);
+
+      const meta = parseCodeMeta(code);
+
+      // Save code to video record
+      db.update(videos)
+        .set({
+          generatedCode: code,
+          title: meta.title,
+          status: "rendering",
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(videos.id, videoId))
+        .run();
+
+      // Step B — Render
+      const result = await renderGeneratedCode(videoId, code, (progress) => {
+        console.log(`[batch:${videoId}] ${progress}%`);
+      });
 
       db.update(videos)
         .set({
@@ -147,29 +163,28 @@ async function batchRenderBackground(videoIds: string[], scriptId: string) {
         .where(eq(videos.id, videoId))
         .run();
 
-      if (scene) {
-        db.update(scriptScenes)
-          .set({ renderStatus: "completed" })
-          .where(eq(scriptScenes.id, scene.id))
-          .run();
-      }
+      db.update(scriptScenes)
+        .set({ renderStatus: "completed" })
+        .where(eq(scriptScenes.id, sceneId))
+        .run();
+
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Render error";
+      const msg = err instanceof Error ? err.message : "Error";
+      console.error(`[batch:${videoId}] failed:`, msg);
+
       db.update(videos)
         .set({ status: "failed", errorMessage: msg, updatedAt: new Date().toISOString() })
         .where(eq(videos.id, videoId))
         .run();
 
-      if (scene) {
-        db.update(scriptScenes)
-          .set({ renderStatus: "failed" })
-          .where(eq(scriptScenes.id, scene.id))
-          .run();
-      }
+      db.update(scriptScenes)
+        .set({ renderStatus: "failed" })
+        .where(eq(scriptScenes.id, sceneId))
+        .run();
     }
   }
 
-  // Check if all scenes done → mark script as completed
+  // Mark script completed when all scenes done
   const remaining = db
     .select()
     .from(scriptScenes)
@@ -183,41 +198,4 @@ async function batchRenderBackground(videoIds: string[], scriptId: string) {
       .where(eq(scripts.id, scriptId))
       .run();
   }
-}
-
-// ── Fallback spec when AI fails for a scene ───────────────────
-function buildFallbackSpec(scene: { title: string; duration: number; sectionType: string }): VideoSpec {
-  return {
-    type: "text-animation",
-    title: scene.title,
-    duration: scene.duration,
-    fps: 30,
-    resolution: "1920x1080",
-    colorPalette: {
-      primary: "#3A5AF7",
-      secondary: "#06B3ED",
-      accent: "#5B4BFF",
-      background: "#0F172A",
-      text: "#FFFFFF",
-    },
-    font: { heading: "Inter", body: "Inter" },
-    scenes: [
-      {
-        id: "s1",
-        type: "intro",
-        duration: scene.duration,
-        background: "#0F172A",
-        title: {
-          content: scene.title,
-          fontSize: 64,
-          fontWeight: "bold",
-          color: "#FFFFFF",
-          align: "center",
-          animation: "fadeIn",
-          animationDelay: 0,
-        },
-      },
-    ],
-    audio: { backgroundMusic: "calm" },
-  } as VideoSpec;
 }

@@ -23,11 +23,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
   }
 
-  const body = await request.json() as { content?: string; videoPrompt?: string };
+  const body = await request.json() as { content?: string; videoPrompt?: string; animationType?: string | null };
   db.update(scriptScenes)
     .set({
       ...(body.content !== undefined && { content: body.content }),
       ...(body.videoPrompt !== undefined && { videoPrompt: body.videoPrompt }),
+      ...(body.animationType !== undefined && { animationType: body.animationType }),
     })
     .where(eq(scriptScenes.id, id))
     .run();

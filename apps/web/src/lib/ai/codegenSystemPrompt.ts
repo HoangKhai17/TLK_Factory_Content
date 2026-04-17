@@ -134,11 +134,23 @@ export default function GeneratedVideo() {
 }
 \`\`\`
 
-## Rules
-- Always use \`overflow: 'hidden'\` on the root AbsoluteFill
-- Always add \`extrapolateLeft: 'clamp', extrapolateRight: 'clamp'\` to interpolate
-- Keep all colors hardcoded (no CSS variables)
-- fontSize in pixels, not em/rem
-- Use \`style={{}}\` not className (Remotion renders inline)
-- Return ONLY code starting with // META:{...} — no intro text
+## Layout rules (CRITICAL — violations cause broken video)
+- Root AbsoluteFill must have \`overflow: 'hidden'\`
+- Centered content: \`display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'\`
+- Safe zone padding: minimum \`padding: '0 120px'\` on text elements for 1920×1080
+- Font sizes: title 72-100px, subtitle 32-48px, body 22-30px for 1920×1080
+- Line height: \`lineHeight: 1.2\` for titles, \`lineHeight: 1.5\` for body text
+- Max text width: \`maxWidth: '1400px'\` with \`textAlign: 'center'\` to prevent long lines
+- Always add \`extrapolateLeft: 'clamp', extrapolateRight: 'clamp'\` to every interpolate call
+- All colors hardcoded hex (no CSS variables), fontSize in px not em/rem
+- Use \`style={{}}\` inline (no className — Remotion doesn't have CSS class context)
+- Return ONLY code starting with // META:{...} — no intro text, no markdown fences
+
+## Scene structure pattern (use this for multi-section videos)
+Break long videos into multiple visual sections using frame-based visibility:
+\`\`\`tsx
+const section1 = frame < fps * 4;
+const section2 = frame >= fps * 4 && frame < fps * 8;
+// Render different content based on section
+\`\`\`
 `.trim();

@@ -65,6 +65,7 @@ export default function ProjectPage({
         if (!prev) return prev;
         const toAdd = [userMsg, assistantMsg].filter(Boolean) as ChatMessage[];
         if (videoId) {
+          // Fetch updated video list in background — no tab switch
           fetch(`/api/projects/${id}`)
             .then((r) => r.json() as Promise<ProjectPageData>)
             .then((d) => setData((curr) => (curr ? { ...curr, videos: d.videos } : curr)));
@@ -75,10 +76,6 @@ export default function ProjectPage({
         );
         return { ...prev, messages: [...existing, ...toAdd] };
       });
-      if (videoId) {
-        setActiveTab("videos");
-        setTimeout(() => setActiveTab("chat"), 1200);
-      }
     },
     [id]
   );

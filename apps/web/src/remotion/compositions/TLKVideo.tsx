@@ -14,45 +14,53 @@ interface TLKVideoProps {
   spec: VideoSpec;
 }
 
-// ── Scene fade wrapper ──────────────────────────────────────────
-// Only fades OUT at the end of a scene (dip-to-dark transition).
-// No fade-IN — avoids the "black flash" artifact caused by opacity:0 at scene start.
-const FADE_OUT = 10; // frames (~0.33s at 30fps)
+// Number of frames each pair of scenes overlaps for cross-dissolve.
+// Must match CROSS_DISSOLVE_FRAMES in renderer/index.ts
+const CROSS_DISSOLVE = 12;
 
+// ── Cross-dissolve scene wrapper ────────────────────────────────
+// Each scene fades in (except the first) and fades out (except the last).
+// Paired with overlapping Sequence start times this creates a smooth dissolve.
 function SceneWrapper({
   durationFrames,
-  children,
+  isFirst,
   isLast,
+  children,
 }: {
   durationFrames: number;
-  children: React.ReactNode;
-  isFirst: boolean; // kept for API compat, unused
+  isFirst: boolean;
   isLast: boolean;
+  children: React.ReactNode;
 }) {
   const frame = useCurrentFrame();
 
-  // Last scene never fades out (clean ending)
-  if (isLast) return <AbsoluteFill>{children}</AbsoluteFill>;
+  if (isFirst && isLast) return <AbsoluteFill>{children}</AbsoluteFill>;
 
-  const fadeOut = Math.min(FADE_OUT, Math.floor(durationFrames * 0.15));
-  if (fadeOut === 0) return <AbsoluteFill>{children}</AbsoluteFill>;
+  // Fade in (not applied to first scene — starts at full opacity)
+  const fadeIn = isFirst
+    ? 1
+    : interpolate(frame, [0, CROSS_DISSOLVE], [0, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
 
-  const holdEnd = durationFrames - fadeOut;
-  const opacity = interpolate(frame, [0, holdEnd, durationFrames], [1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // Fade out (not applied to last scene — ends at full opacity)
+  const fadeOut = isLast
+    ? 1
+    : interpolate(frame, [durationFrames - CROSS_DISSOLVE, durationFrames], [1, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
 
   return (
-    <AbsoluteFill style={{ opacity }}>
+    <AbsoluteFill style={{ opacity: Math.min(fadeIn, fadeOut) }}>
       {children}
     </AbsoluteFill>
   );
 }
 
-// ── Animated gradient overlay ────────────────────────────────────
-// Slowly pulsing color wash on top of scene content — subtle premium effect.
-// Uses blend mode so it tints without fully obscuring the scene.
+// ── Subtle animated overlay ──────────────────────────────────────
+// Very subtle color wash that breathes in/out during each scene.
 function AnimatedGradientOverlay({
   colors,
   durationFrames,
@@ -62,17 +70,15 @@ function AnimatedGradientOverlay({
 }) {
   const frame = useCurrentFrame();
 
-  // Angle slowly shifts 30° over the scene duration
   const angle = interpolate(frame, [0, durationFrames], [135, 165], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Opacity gently breathes: 0 → peak → 0
   const opacity = interpolate(
     frame,
     [0, durationFrames * 0.25, durationFrames * 0.75, durationFrames],
-    [0, 0.06, 0.06, 0],
+    [0, 0.05, 0.05, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
@@ -82,14 +88,12 @@ function AnimatedGradientOverlay({
         background: `linear-gradient(${angle}deg, ${colors[0]} 0%, ${colors[1]} 100%)`,
         opacity,
         mixBlendMode: "screen",
-        zIndex: 100,
         pointerEvents: "none",
       }}
     />
   );
 }
 
-// Parse "gradient:#hex1,#hex2" → [color1, color2] | null
 function parseGradientColors(
   bg: string | undefined | null | unknown,
   palette: ColorPalette
@@ -100,10 +104,7 @@ function parseGradientColors(
     const c2 = parts[1]?.trim() ?? c1;
     return [c1, c2];
   }
-  if (typeof bg === "string" && bg.startsWith("#")) {
-    return [bg, bg];
-  }
-  // Fallback: use palette
+  if (typeof bg === "string" && bg.startsWith("#")) return [bg, bg];
   return [palette.background, palette.primary];
 }
 
@@ -112,34 +113,41 @@ export function TLKVideo({ spec }: TLKVideoProps) {
   const { fps } = useVideoConfig();
   const { colorPalette, scenes } = spec;
 
-  let currentFrame = 0;
+  // Pre-calculate frame ranges with dissolve overlap
+  let offset = 0;
+  const sceneEntries = scenes.map((scene, i) => {
+    const durationFrames = Math.round(scene.duration * fps);
+    const from = offset;
+    // All scenes except last: offset advances by (duration - dissolve), creating overlap
+    if (i < scenes.length - 1) {
+      offset += durationFrames - CROSS_DISSOLVE;
+    }
+    return {
+      scene,
+      from,
+      durationFrames,
+      isFirst: i === 0,
+      isLast: i === scenes.length - 1,
+    };
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: colorPalette.background }}>
-      {scenes.map((scene, i) => {
-        const durationFrames = Math.round(scene.duration * fps);
-        const from = currentFrame;
-        currentFrame += durationFrames;
-
-        const isFirst = i === 0;
-        const isLast  = i === scenes.length - 1;
+      {sceneEntries.map(({ scene, from, durationFrames, isFirst, isLast }) => {
         const gradientColors = parseGradientColors(scene.background, colorPalette);
+        const common = { scene, palette: colorPalette, accentColor: colorPalette.accent };
 
         const el = (() => {
-          const common = { scene, palette: colorPalette, accentColor: colorPalette.accent };
           switch (scene.type) {
-            case "intro":       return <IntroScene {...common} primaryColor={colorPalette.primary} />;
-            case "outro":       return <OutroScene {...common} primaryColor={colorPalette.primary} />;
-            case "bullet-list": return <BulletListScene {...common} />;
-            case "stat":        return <StatScene {...common} />;
-            case "quote":       return <QuoteScene {...common} />;
-            case "timeline":    return <TimelineScene {...common} />;
+            case "intro":         return <IntroScene {...common} primaryColor={colorPalette.primary} />;
+            case "outro":         return <OutroScene {...common} primaryColor={colorPalette.primary} />;
+            case "bullet-list":   return <BulletListScene {...common} />;
+            case "stat":          return <StatScene {...common} />;
+            case "quote":         return <QuoteScene {...common} />;
+            case "timeline":      return <TimelineScene {...common} />;
             case "split":
-            case "split-screen": return <SplitScene {...common} />;
-            case "text-animation":
-            case "image":
-            case "transition":
-            default:            return <TextScene scene={scene} palette={colorPalette} />;
+            case "split-screen":  return <SplitScene {...common} />;
+            default:              return <TextScene scene={scene} palette={colorPalette} />;
           }
         })();
 
@@ -150,10 +158,7 @@ export function TLKVideo({ spec }: TLKVideoProps) {
             durationInFrames={durationFrames}
             layout="absolute-fill"
           >
-            {/* Animated gradient overlay — subtle color wash */}
             <AnimatedGradientOverlay colors={gradientColors} durationFrames={durationFrames} />
-
-            {/* Scene content with fade in/out */}
             <SceneWrapper durationFrames={durationFrames} isFirst={isFirst} isLast={isLast}>
               {el}
             </SceneWrapper>

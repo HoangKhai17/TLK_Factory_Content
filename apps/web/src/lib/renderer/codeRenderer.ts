@@ -89,7 +89,8 @@ registerRoot(RemotionRoot);
     onProgress: ({ progress }) => onProgress?.(40 + Math.round(progress * 50)),
     timeoutInMilliseconds: 300000,
     concurrency: 2,
-    jpegQuality: 85,
+    jpegQuality: 90,
+    videoBitrate: meta.width >= 1920 ? "8M" : meta.width >= 1280 ? "5M" : "3M",
   });
 
   onProgress?.(90);

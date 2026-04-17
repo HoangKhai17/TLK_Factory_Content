@@ -61,7 +61,13 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
     number
   ];
 
-  const durationInFrames = spec.duration * spec.fps;
+  // Use actual sum of scene durations (AI sometimes sets spec.duration incorrectly)
+  const CROSS_DISSOLVE_FRAMES = 12;
+  const totalSceneFrames = spec.scenes.reduce((sum, s) => sum + Math.round(s.duration * spec.fps), 0);
+  const durationInFrames = Math.max(
+    totalSceneFrames - CROSS_DISSOLVE_FRAMES * Math.max(0, spec.scenes.length - 1),
+    spec.fps // minimum 1 second
+  );
 
   // Select the composition
   const composition = await selectComposition({
@@ -87,11 +93,13 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
     outputLocation: outputFile,
     inputProps: { spec },
     onProgress: ({ progress }) => {
-      onProgress?.(40 + Math.round(progress * 55));
+      onProgress?.(40 + Math.round(progress * 50));
     },
     timeoutInMilliseconds: 300000,
     concurrency: 2,
-    jpegQuality: 85,
+    jpegQuality: 90,
+    // High quality video: ~8Mbps for 1080p, scales with resolution
+    videoBitrate: width >= 1920 ? "8M" : width >= 1280 ? "5M" : "3M",
   });
 
   onProgress?.(95);
@@ -118,6 +126,6 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
   return {
     outputPath: `/outputs/${videoId}/output.mp4`,
     thumbnailPath: `/outputs/${videoId}/thumbnail.jpg`,
-    durationSeconds: spec.duration,
+    durationSeconds: Math.round(durationInFrames / spec.fps),
   };
 }

@@ -13,10 +13,10 @@ interface ChatInterfaceProps {
 }
 
 const SUGGESTION_PROMPTS = [
-  { icon: "▶", text: "Tạo video YouTube giới thiệu sản phẩm 60 giây, phong cách hiện đại" },
-  { icon: "◈", text: "Tạo video TikTok text animation về tips công nghệ, gradient xanh" },
-  { icon: "◎", text: "Tạo video marketing quảng cáo dịch vụ, tone màu xanh chuyên nghiệp" },
-  { icon: "T", text: "Tạo video social media 30 giây, phong cách minimalist tối giản" },
+  { icon: "✦", text: "Tạo video neon cyberpunk 15s giới thiệu AI agent, chữ phát sáng xanh lam, background tối" },
+  { icon: "₿", text: "Tạo video crypto finance 12s về Bitcoin, màu vàng gold, animated price chart" },
+  { icon: "◈", text: "Tạo video cinematic 10s title animation cho công ty tech startup, minimal" },
+  { icon: "◎", text: "Tạo video motion graphics 15s về workflow automation, gradient tím-hồng" },
 ];
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
@@ -88,7 +88,6 @@ export function ChatInterface({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
-  const [generationMode, setGenerationMode] = useState<"template" | "ai-code">("template");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -128,7 +127,7 @@ export function ChatInterface({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, message: trimmed, generationMode }),
+        body: JSON.stringify({ projectId, message: trimmed, generationMode: "ai-code" }),
       });
       const data = await res.json() as { message?: ChatMessage; videoId?: string | null; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Có lỗi xảy ra");
@@ -265,58 +264,16 @@ export function ChatInterface({
 
       {/* Input area */}
       <div className="px-6 pb-5 bg-[#F8FAFF]">
-        {/* Mode toggle */}
-        <div className="flex items-center gap-2 mb-2.5">
-          <span className="text-[11px] text-[#94A3B8] font-medium">Chế độ:</span>
-          <div className="flex rounded-lg overflow-hidden border border-[#E2E8F0] bg-white text-[11px] font-medium">
-            <button
-              onClick={() => setGenerationMode("template")}
-              className={cn(
-                "px-3 py-1.5 transition-all",
-                generationMode === "template"
-                  ? "tlk-gradient text-white"
-                  : "text-[#64748B] hover:bg-[#F8FAFF]"
-              )}
-            >
-              Standard
-            </button>
-            <button
-              onClick={() => setGenerationMode("ai-code")}
-              className={cn(
-                "px-3 py-1.5 transition-all flex items-center gap-1",
-                generationMode === "ai-code"
-                  ? "bg-linear-to-r from-[#7C3AED] to-[#DB2777] text-white"
-                  : "text-[#64748B] hover:bg-[#F8FAFF]"
-              )}
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-              AI Code
-            </button>
-          </div>
-          {generationMode === "ai-code" && (
-            <span className="text-[10px] text-[#7C3AED] bg-[#F5F3FF] px-2 py-0.5 rounded-full font-medium">
-              Motion Graphics · Neon · Cinematic
-            </span>
-          )}
-        </div>
-
         <div className={cn(
           "flex items-end gap-3 bg-white border rounded-2xl px-4 py-3 transition-all shadow-sm",
-          sending ? "border-[#E2E8F0]" : generationMode === "ai-code"
-            ? "border-[#E2E8F0] focus-within:border-[#7C3AED] focus-within:shadow-md focus-within:shadow-[#7C3AED]/10"
-            : "border-[#E2E8F0] focus-within:border-[#3A5AF7] focus-within:shadow-md focus-within:shadow-[#3A5AF7]/10"
+          sending ? "border-[#E2E8F0]" : "border-[#E2E8F0] focus-within:border-[#7C3AED] focus-within:shadow-md focus-within:shadow-[#7C3AED]/10"
         )}>
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => { setInput(e.target.value); autoResize(); }}
             onKeyDown={handleKeyDown}
-            placeholder={generationMode === "ai-code"
-              ? "Mô tả phong cách video: neon cyberpunk, crypto finance, cinematic... (Enter gửi)"
-              : "Mô tả video bạn muốn tạo... (Enter gửi · Shift+Enter xuống dòng)"
-            }
+            placeholder="Mô tả phong cách video: neon cyberpunk, crypto, cinematic... (Enter gửi)"
             rows={1}
             className="flex-1 bg-transparent text-[#0F172A] placeholder-[#CBD5E1] text-sm resize-none focus:outline-none leading-relaxed"
             style={{ maxHeight: 160 }}

@@ -26,6 +26,16 @@ Return ONLY TypeScript/TSX code. The VERY FIRST LINE must be:
 
 No markdown fences, no explanations, no intro text. Just the code starting with // META:{...}
 
+## CRITICAL — Duration rules (READ CAREFULLY)
+- \`duration\` in META = video length in **SECONDS**, NOT frames
+- \`durationInFrames = duration × fps\` — so duration:10, fps:30 → 300 frames total
+- **Do NOT set duration to frame counts** (e.g. 300 frames ≠ 300 seconds)
+- Default: **10 seconds** if user doesn't specify
+- Range: 5–30s for most videos; only go longer if explicitly asked
+- Your animations must complete BEFORE \`duration × fps\` frames
+- Example: duration:10 → all interpolations must finish by frame 300 (at fps:30)
+- If you use \`interpolate(frame, [0, 90], ...)\`, your total duration should be ~4-5s, not 90s
+
 ## Component requirements
 1. Export: \`export default function GeneratedVideo()\`
 2. Imports: ONLY from "react", "remotion", and "@tlk/motion"

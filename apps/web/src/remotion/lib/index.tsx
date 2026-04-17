@@ -108,7 +108,7 @@ export function GlowText({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const glowI = pulse
-    ? interpolate(frame % (fps * 2), [0, fps, fps * 2], [0.7 * intensity, intensity, 0.7 * intensity], {
+    ? interpolate(frame % Math.max(1, fps * 2), [0, Math.max(1, fps), Math.max(2, fps * 2)], [0.7 * intensity, intensity, 0.7 * intensity], {
         extrapolateLeft: "clamp", extrapolateRight: "clamp",
       })
     : intensity;
@@ -535,9 +535,7 @@ export function RotatingRing({
 }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const rotation = interpolate(frame, [0, fps * 10], [0, 360 * speed], {
-    extrapolateRight: "wrap" as unknown as "clamp",
-  });
+  const rotation = (frame / Math.max(1, fps * 10)) * 360 * speed % 360;
   const r = size / 2 - 2;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -549,6 +547,292 @@ export function RotatingRing({
         style={{ transform: `rotate(${rotation}deg)`, transformOrigin: `${size / 2}px ${size / 2}px` }}
       />
     </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TIMING HELPERS
+// ─────────────────────────────────────────────────────────────────
+
+/** FadeOut — element fades to 0 opacity starting at exitFrame */
+export function FadeOut({
+  children, exitFrame, duration = 15, style,
+}: {
+  children: React.ReactNode; exitFrame: number; duration?: number; style?: React.CSSProperties;
+}) {
+  const frame = useCurrentFrame();
+  const op = interpolate(frame, [exitFrame, exitFrame + duration], [1, 0], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  return <div style={{ opacity: op, ...style }}>{children}</div>;
+}
+
+/** Show element only within a frame range [inFrame, outFrame) */
+export function ShowRange({
+  children, inFrame, outFrame,
+}: {
+  children: React.ReactNode; inFrame: number; outFrame: number;
+}) {
+  const frame = useCurrentFrame();
+  if (frame < inFrame || frame >= outFrame) return null;
+  return <>{children}</>;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TEXT — ADVANCED
+// ─────────────────────────────────────────────────────────────────
+
+/** Word-by-word slide+fade entrance — maps "word_by_word slide_from_bottom" DSL */
+export function WordByWord({
+  text, startFrame = 0, wordDuration = 10, staggerFrames = 8,
+  color = "#ffffff", fontSize = 68, fontWeight = 500,
+  direction = "up", distance = 40, lineHeight = 1.2,
+  style,
+}: {
+  text: string; startFrame?: number; wordDuration?: number; staggerFrames?: number;
+  color?: string; fontSize?: number; fontWeight?: number | string;
+  direction?: "up" | "down"; distance?: number; lineHeight?: number;
+  style?: React.CSSProperties;
+}) {
+  const frame = useCurrentFrame();
+  const words = text.split(" ");
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: `0 0.28em`, ...style }}>
+      {words.map((word, i) => {
+        const delay = startFrame + i * staggerFrames;
+        const eff = Math.max(0, frame - delay);
+        const op = interpolate(eff, [0, wordDuration], [0, 1], {
+          extrapolateLeft: "clamp", extrapolateRight: "clamp",
+        });
+        const d = direction === "up" ? 1 : -1;
+        const y = interpolate(eff, [0, wordDuration], [d * distance, 0], {
+          extrapolateLeft: "clamp", extrapolateRight: "clamp",
+          easing: Easing.out(Easing.cubic),
+        });
+        return (
+          <span key={i} style={{
+            opacity: op, transform: `translateY(${y}px)`,
+            display: "inline-block", color, fontSize, fontWeight,
+            lineHeight, whiteSpace: "pre",
+          }}>
+            {word}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Text with linear gradient fill (CSS WebkitTextFillColor trick) */
+export function GradientText({
+  children, from = "#a78bfa", to = "#06b6d4", angle = "to right",
+  fontSize = 72, fontWeight = 800, letterSpacing, style,
+}: {
+  children: React.ReactNode; from?: string; to?: string; angle?: string;
+  fontSize?: number; fontWeight?: number | string; letterSpacing?: string | number;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div style={{
+      fontSize, fontWeight, lineHeight: 1.1,
+      letterSpacing,
+      background: `linear-gradient(${angle}, ${from}, ${to})`,
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      backgroundClip: "text",
+      display: "inline-block",
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+/** Shimmer highlight that sweeps across text once */
+export function ShimmerText({
+  children, startFrame = 0, duration = 24,
+  color = "rgba(255,255,255,0.7)", style,
+}: {
+  children: React.ReactNode; startFrame?: number; duration?: number;
+  color?: string; style?: React.CSSProperties;
+}) {
+  const frame = useCurrentFrame();
+  const pct = interpolate(Math.max(0, frame - startFrame), [0, duration], [-20, 120], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
+  });
+  return (
+    <div style={{ position: "relative", display: "inline-block", ...style }}>
+      {children}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: `linear-gradient(105deg, transparent ${pct - 15}%, ${color} ${pct}%, transparent ${pct + 15}%)`,
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      }}>{children}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ANIMATION WRAPPERS
+// ─────────────────────────────────────────────────────────────────
+
+/** Looping float oscillation — maps "float y-oscillation ±Npx period Xs" DSL */
+export function FloatLoop({
+  children, amplitude = 8, period = 3, phaseOffset = 0, style,
+}: {
+  children: React.ReactNode; amplitude?: number; period?: number;
+  phaseOffset?: number; style?: React.CSSProperties;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const totalFrames = Math.max(1, Math.round(period * fps));
+  const f = (frame + Math.round(phaseOffset * fps)) % totalFrames;
+  const y = interpolate(f, [0, totalFrames / 2, totalFrames], [-amplitude, amplitude, -amplitude], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.sin),
+  });
+  return <div style={{ transform: `translateY(${y}px)`, ...style }}>{children}</div>;
+}
+
+/** Looping breathe scale — maps "breathe scale 1→1.02→1.0 loop" DSL */
+export function BreatheLoop({
+  children, minScale = 1, maxScale = 1.03, period = 2.5, style,
+}: {
+  children: React.ReactNode; minScale?: number; maxScale?: number;
+  period?: number; style?: React.CSSProperties;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const totalFrames = Math.max(1, Math.round(period * fps));
+  const f = frame % totalFrames;
+  const sc = interpolate(f, [0, totalFrames / 2, totalFrames], [minScale, maxScale, minScale], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.sin),
+  });
+  return <div style={{ transform: `scale(${sc})`, ...style }}>{children}</div>;
+}
+
+/** Spring bounce entrance — maps "spring_bounce scale 0→1.2→1.0" DSL */
+export function SpringBounce({
+  children, startFrame = 0, mass = 0.4, damping = 8,
+  from = 0, to = 1, style,
+}: {
+  children: React.ReactNode; startFrame?: number; mass?: number; damping?: number;
+  from?: number; to?: number; style?: React.CSSProperties;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const sc = spring({ frame: Math.max(0, frame - startFrame), fps, config: { mass, damping }, from, to });
+  return <div style={{ transform: `scale(${sc})`, ...style }}>{children}</div>;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// EFFECTS
+// ─────────────────────────────────────────────────────────────────
+
+/** RGB split glitch flash overlay — maps "glitch flash overlay RGB split" DSL */
+export function GlitchFlash({
+  startFrame = 0, durationFrames = 4,
+  rgbSpread = 8, maxOpacity = 0.9,
+}: {
+  startFrame?: number; durationFrames?: number; rgbSpread?: number; maxOpacity?: number;
+}) {
+  const frame = useCurrentFrame();
+  const eff = Math.max(0, frame - startFrame);
+  const op = interpolate(eff, [0, Math.ceil(durationFrames * 0.3), Math.ceil(durationFrames * 0.7), durationFrames], [0, maxOpacity, maxOpacity, 0], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  if (op <= 0) return null;
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 100, overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(255,0,0,0.35)", transform: `translateX(${rgbSpread}px)`, opacity: op, mixBlendMode: "screen" }} />
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,100,255,0.35)", transform: `translateX(${-rgbSpread}px)`, opacity: op, mixBlendMode: "screen" }} />
+      <div style={{ position: "absolute", inset: 0, background: `rgba(255,255,255,0.12)`, opacity: op }} />
+    </div>
+  );
+}
+
+/** Outward particle burst from a center point — maps "particle burst N hạt" DSL */
+export function ParticleBurst({
+  cx = 960, cy = 540, startFrame = 0, count = 60,
+  colors = ["#7c3aed", "#06b6d4"], minSize = 3, maxSize = 6,
+  maxRadius = 400, duration = 45,
+}: {
+  cx?: number; cy?: number; startFrame?: number; count?: number;
+  colors?: string[]; minSize?: number; maxSize?: number;
+  maxRadius?: number; duration?: number;
+}) {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const eff = Math.max(0, frame - startFrame);
+  if (eff > duration + 5) return null;
+  return (
+    <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+      viewBox={`0 0 ${width} ${height}`}>
+      {Array.from({ length: count }).map((_, i) => {
+        const angle = (i / count) * Math.PI * 2 + i * 0.37;
+        const speed = 0.5 + (i % 7) * 0.1;
+        const r = interpolate(eff, [0, duration], [0, maxRadius * speed], {
+          extrapolateLeft: "clamp", extrapolateRight: "clamp",
+          easing: Easing.out(Easing.cubic),
+        });
+        const op = interpolate(eff, [0, duration * 0.25, duration], [0, 1, 0], {
+          extrapolateLeft: "clamp", extrapolateRight: "clamp",
+        });
+        const size = minSize + (i % (maxSize - minSize + 1));
+        const color = colors[i % colors.length] ?? "#ffffff";
+        return (
+          <circle key={i}
+            cx={cx + Math.cos(angle) * r}
+            cy={cy + Math.sin(angle) * r}
+            r={size / 2} fill={color} opacity={op}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Circular diagram node (icon + label circle) */
+export function DiagramNode({
+  label, icon, x, y, size = 78,
+  borderColor = "#06b6d4", bg = "#1e1e4a",
+  textColor = "#e2e8f0", fontSize = 20,
+  startFrame = 0, glowColor,
+}: {
+  label: string; icon: string; x: number; y: number; size?: number;
+  borderColor?: string; bg?: string; textColor?: string; fontSize?: number;
+  startFrame?: number; glowColor?: string;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const sc = spring({ frame: Math.max(0, frame - startFrame), fps, config: { mass: 0.4, damping: 8 }, from: 0, to: 1 });
+  const labelOp = interpolate(Math.max(0, frame - startFrame - 15), [0, 9], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const glowStyle = glowColor ? { boxShadow: neonShadow(glowColor, 0.8) } : {};
+  return (
+    <div style={{
+      position: "absolute", left: x, top: y,
+      transform: `translate(-50%, -50%) scale(${sc})`,
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+    }}>
+      <div style={{
+        width: size, height: size, borderRadius: "50%",
+        background: bg, border: `2px solid ${borderColor}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: size * 0.45,
+        ...glowStyle,
+      }}>
+        {icon}
+      </div>
+      <div style={{ opacity: labelOp, color: textColor, fontSize, fontWeight: 500, textAlign: "center", whiteSpace: "nowrap" }}>
+        {label}
+      </div>
+    </div>
   );
 }
 
@@ -575,8 +859,10 @@ export function Card3D({
   });
 
   // Gentle idle tilt
-  const tiltX = interpolate(frame % (fps * 4), [0, fps * 2, fps * 4], [-tiltAmplitude, tiltAmplitude, -tiltAmplitude], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const tiltY = interpolate(frame % (fps * 3), [0, fps * 1.5, fps * 3], [-tiltAmplitude * 0.6, tiltAmplitude * 0.6, -tiltAmplitude * 0.6], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const p4 = Math.max(1, fps * 4);
+  const p3 = Math.max(1, fps * 3);
+  const tiltX = interpolate(frame % p4, [0, p4 / 2, p4], [-tiltAmplitude, tiltAmplitude, -tiltAmplitude], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const tiltY = interpolate(frame % p3, [0, p3 / 2, p3], [-tiltAmplitude * 0.6, tiltAmplitude * 0.6, -tiltAmplitude * 0.6], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const isFlipping = frame < startFrame + flipDuration;
   const transform = isFlipping

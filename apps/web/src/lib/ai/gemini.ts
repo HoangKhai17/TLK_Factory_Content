@@ -126,7 +126,10 @@ export class GeminiProvider implements AIProvider {
     });
     const raw = await withRetry(() =>
       codeModel.generateContent(
-        `Create a Remotion video component for: ${userPrompt}\n\nReturn ONLY the code starting with // META:{...}`
+        `Create a Remotion video component for: ${userPrompt}\n\n` +
+        `CRITICAL: Your response must begin with EXACTLY this pattern (no text before it):\n` +
+        `// META:{"duration":10,"fps":30,"width":1920,"height":1080,"title":"..."}\n` +
+        `Then immediately the import statements and component code. NO markdown fences. NO explanation text.`
       ).then((r) => r.response.text())
     );
     const code = extractCode(raw);
@@ -135,10 +138,16 @@ export class GeminiProvider implements AIProvider {
 }
 
 function extractCode(raw: string): string {
-  // Strip markdown fences if present
-  const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/);
-  const code = fenced ? (fenced[1] ?? raw).trim() : raw.trim();
-  return code;
+  // Try fenced block first, fall back to raw
+  const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/s);
+  const stripped = fenced ? (fenced[1] ?? raw).trim() : raw.trim();
+  // Find // META: anywhere (AI sometimes prepends explanation text)
+  const metaIdx = stripped.indexOf("// META:");
+  if (metaIdx < 0) {
+    // No META found at all — log full raw for debugging
+    console.error("[extractCode] No // META: found in AI response. Raw (500 chars):", raw.slice(0, 500));
+  }
+  return metaIdx > 0 ? stripped.slice(metaIdx) : stripped;
 }
 
 function extractJSON<T>(raw: string): T {

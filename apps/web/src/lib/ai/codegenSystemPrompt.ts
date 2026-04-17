@@ -36,8 +36,24 @@ No markdown fences, no explanations, no intro text. Just the code starting with 
 - Example: duration:10 → all interpolations must finish by frame 300 (at fps:30)
 - If you use \`interpolate(frame, [0, 90], ...)\`, your total duration should be ~4-5s, not 90s
 
+## Multi-scene video strategy (CRITICAL for prompts with [Ns-Ms] sections)
+- Use \`const t = frame / fps\` for time in seconds
+- Use \`const f = (startSec: number) => frame - Math.round(startSec * fps)\` for relative frame within scene
+- Scene visibility: \`{t >= 4 && t < 8 && <> ...scene content... </>}\`
+- Convert "delay Xms từ Ts" → \`startFrame = Math.round((T + X/1000) * fps)\`
+- Keep ALL scenes in ONE component — do NOT use Remotion \`<Sequence>\` (not needed here)
+- Persistent elements (background, particles) go OUTSIDE scene conditionals
+
 ## Component requirements
-1. Export: \`export default function GeneratedVideo()\`
+1. **Export** — use EXACTLY one of these patterns (no other names allowed):
+   \`\`\`tsx
+   // Pattern A (preferred):
+   export default function GeneratedVideo() { ... }
+
+   // Pattern B (also accepted):
+   const GeneratedVideo = () => { ... };
+   export default GeneratedVideo;
+   \`\`\`
 2. Imports: ONLY from "react", "remotion", and "@tlk/motion"
 3. Root element: \`<AbsoluteFill style={{ overflow: 'hidden' }}>\`
 4. No fetch, no async/await, no process, no window, no document, no require
@@ -46,69 +62,148 @@ No markdown fences, no explanations, no intro text. Just the code starting with 
 ## @tlk/motion utility library — USE THIS to save code and improve quality
 
 \`\`\`tsx
-import { GlowText, KineticWord, CharStagger, AnimatedCounter,
-         FadeIn, SlideIn, ScaleIn, WipeIn,
-         ProgressRing, BarChart, ParticleField,
-         Scanlines, CyberGrid, AmbientGlow, ChromaText,
-         RingPulse, AccentLine, RotatingRing, Card3D,
-         PALETTES, rgba, neonShadow, EASE } from "@tlk/motion";
+import {
+  // Text
+  GlowText, KineticWord, CharStagger, AnimatedCounter,
+  WordByWord, GradientText, ShimmerText,
+  // Entrance
+  FadeIn, FadeOut, SlideIn, ScaleIn, WipeIn, SpringBounce,
+  // Loops
+  FloatLoop, BreatheLoop,
+  // Data viz
+  ProgressRing, BarChart,
+  // Particles & atmosphere
+  ParticleField, ParticleBurst,
+  Scanlines, CyberGrid, AmbientGlow, ChromaText,
+  // Effects
+  GlitchFlash,
+  // Diagram
+  DiagramNode,
+  // Logo/accent
+  RingPulse, AccentLine, RotatingRing, Card3D,
+  // Timing
+  ShowRange,
+  // Utils
+  PALETTES, rgba, neonShadow, EASE,
+} from "@tlk/motion";
 \`\`\`
 
-### Palette presets (pick one for consistent colors)
+### Palette presets
 \`\`\`tsx
-const p = PALETTES.neonCyan;   // bg, primary, secondary, accent, text, surface
+const p = PALETTES.neonCyan;  // { bg, primary, secondary, accent, text, surface }
 // Also: goldFinance, techBlue, purpleMagenta, emeraldDark, crimsonDark, minimalLight, minimalDark
 \`\`\`
 
 ### Text components
 \`\`\`tsx
+// Word-by-word slide entrance ("word_by_word slide_from_bottom" DSL)
+<WordByWord text="AI thông thường" startFrame={9} staggerFrames={8} wordDuration={10}
+  fontSize={68} fontWeight={500} color="#94a3b8" direction="up" distance={40} />
+
+// Gradient fill text ("gradient fill từ #a78bfa sang #06b6d4" DSL)
+<GradientText from="#a78bfa" to="#06b6d4" angle="to right" fontSize={108} fontWeight={800}>
+  AGENTIC AI
+</GradientText>
+
+// Shimmer sweep highlight (use after a reveal animation)
+<ShimmerText startFrame={60} duration={24}><GradientText ...>text</GradientText></ShimmerText>
+
+// Neon glow text
 <GlowText color="#00ffff" fontSize={96} fontWeight={900} intensity={1.2} pulse>NEON TITLE</GlowText>
+
+// Classic slide-up masked reveal
 <KineticWord startFrame={10} duration={18} fontSize={120} color="#fff">SLIDE UP</KineticWord>
+
+// Char stagger
 <CharStagger text="ANIMATE" startFrame={0} staggerFrames={3} fontSize={96} />
-<AnimatedCounter from={0} to={97} suffix="%" startFrame={20} endFrame={80} fontSize={96} />
+
+// Number counter — props: target (number), startFrame, duration, prefix, suffix, decimals, color, fontSize
+<AnimatedCounter target={97} suffix="%" startFrame={20} duration={60} fontSize={96} color="#ffffff" />
 \`\`\`
 
 ### Entrance wrappers
 \`\`\`tsx
-<FadeIn startFrame={15} duration={20}><div>any content</div></FadeIn>
-<SlideIn startFrame={20} direction="up" distance={60}><div>slides in from below</div></SlideIn>
-<ScaleIn startFrame={10} from={0.8}><div>scale entrance</div></ScaleIn>
-<WipeIn startFrame={5} direction="left"><div>wipe reveal</div></WipeIn>
+<FadeIn startFrame={15} duration={20}><div>content</div></FadeIn>
+<FadeOut exitFrame={90} duration={15}><div>fades out at frame 90</div></FadeOut>
+<SlideIn startFrame={20} direction="up" distance={60}><div>slides up</div></SlideIn>
+<ScaleIn startFrame={10}><div>spring scale entrance</div></ScaleIn>
+<WipeIn startFrame={5}><div>wipe reveal</div></WipeIn>
+
+// Spring bounce entrance ("spring_bounce scale 0→1.2→1.0" DSL)
+<SpringBounce startFrame={30} mass={0.4} damping={8}><div>bounces in</div></SpringBounce>
+\`\`\`
+
+### Loop animations
+\`\`\`tsx
+// Float oscillation ("float y-oscillation ±5px period 3s loop" DSL)
+<FloatLoop amplitude={5} period={3} phaseOffset={0}><div>floats up/down</div></FloatLoop>
+
+// Breathe scale ("breathe scale 1→1.02→1.0 loop 2.5s" DSL)
+<BreatheLoop minScale={1} maxScale={1.02} period={2.5}><div>breathes</div></BreatheLoop>
+\`\`\`
+
+### Timing/range
+\`\`\`tsx
+// Show only between frames inFrame and outFrame
+<ShowRange inFrame={0} outFrame={120}><div>visible frames 0-119</div></ShowRange>
+\`\`\`
+
+### Particles & atmosphere
+\`\`\`tsx
+<ParticleField count={180} color="#7c3aed" opacity={0.18} speed={0.3} maxSize={3} />
+
+// Outward particle burst ("particle burst 60 hạt" DSL)
+<ParticleBurst cx={960} cy={540} startFrame={159} count={60}
+  colors={["#7c3aed","#06b6d4"]} minSize={3} maxSize={6}
+  maxRadius={400} duration={45} />
+
+<Scanlines opacity={0.08} />
+<CyberGrid color="#00ffff" opacity={0.12} />
+<AmbientGlow color="#3a5af7" x="50%" y="50%" size={800} opacity={0.3} />
+\`\`\`
+
+### Effects
+\`\`\`tsx
+// RGB split glitch flash ("glitch flash overlay RGB split" DSL)
+<GlitchFlash startFrame={120} durationFrames={4} rgbSpread={8} maxOpacity={0.9} />
+\`\`\`
+
+### Circular diagram nodes ("Node X vị trí top/right/bottom/left" DSL)
+\`\`\`tsx
+<DiagramNode label="NHẬN BIẾT" icon="👁" x={960} y={216}
+  borderColor="#06b6d4" bg="#1e1e4a" startFrame={60} />
+<DiagramNode label="LÊN KẾ HOẠCH" icon="🧠" x={1382} y={540}
+  borderColor="#a78bfa" bg="#1e1e4a" startFrame={72} />
+<DiagramNode label="HÀNH ĐỘNG" icon="⚡" x={960} y={864}
+  borderColor="#7c3aed" bg="#7c3aed" size={88} glowColor="#7c3aed" startFrame={84} />
+<DiagramNode label="QUAN SÁT" icon="🔄" x={538} y={540}
+  borderColor="#10b981" bg="#1e1e4a" startFrame={96} />
+\`\`\`
+
+### Curved SVG arrows between nodes
+\`\`\`tsx
+// Draw a curved arrow in SVG using animated strokeDashoffset
+const circ = 280; // approximate path length
+const drawn = interpolate(Math.max(0, frame - 140), [0, 14], [circ, 0], {
+  extrapolateLeft:"clamp", extrapolateRight:"clamp" });
+<path d="M 960 255 Q 1200 255 1310 500" fill="none"
+  stroke="#06b6d4" strokeWidth={3}
+  strokeDasharray={circ} strokeDashoffset={drawn}
+  markerEnd="url(#arrow)" />
 \`\`\`
 
 ### Data viz
 \`\`\`tsx
-<ProgressRing progress={0.72} startFrame={20} endFrame={80} radius={90} stroke={20} color="#10B981" />
-<BarChart
-  bars={[{ label:"Q1", value:0.65, color:"#3A5AF7" }, { label:"Q2", value:0.82, color:"#10B981" }]}
-  startFrame={20} maxHeight={280} barWidth={100}
-/>
-\`\`\`
-
-### Particle & atmosphere
-\`\`\`tsx
-<ParticleField count={60} color="#00ffff" />  {/* floating particles, full-screen */}
-<Scanlines opacity={0.08} />                   {/* CRT scanline overlay */}
-<CyberGrid color="#00ffff" opacity={0.12} />   {/* grid lines, full-screen */}
-<AmbientGlow color="#3a5af7" x={960} y={540} radius={400} opacity={0.3} />
-\`\`\`
-
-### Special effects
-\`\`\`tsx
-<ChromaText text="RGB SPLIT" color="#fff" offset={2} fontSize={96} />
-<RingPulse cx={960} cy={540} startFrame={45} color="#00ffff" maxRadius={250} />
-<AccentLine startFrame={10} duration={20} width={200} color="#f59e0b" />
-<RotatingRing cx={960} cy={540} radius={120} color="#8b5cf6" />
-<Card3D width={500} height={320} flipStartFrame={10} style={{ background:"rgba(255,255,255,0.05)" }}>
-  <div>card content</div>
-</Card3D>
+<ProgressRing percent={72} startFrame={20} duration={60} size={200} color="#10B981" />
+<BarChart bars={[{label:"Q1",value:65,color:"#3A5AF7"},{label:"Q2",value:82,color:"#10B981"}]}
+  startFrame={20} maxHeight={280} barWidth={100} />
 \`\`\`
 
 ### Utilities
 \`\`\`tsx
-rgba("#00ffff", 0.3)   // → "rgba(0,255,255,0.3)"
-neonShadow("#00ffff", 1.2)  // → multi-layer text-shadow string
-EASE.smooth / EASE.bounce / EASE.snappy / EASE.elastic  // easing presets
+rgba("#00ffff", 0.3)       // → "rgba(0,255,255,0.3)"
+neonShadow("#00ffff", 1.2) // → multi-layer text-shadow string
+EASE.smooth / EASE.bounce / EASE.snappy / EASE.elastic / EASE.easeIn / EASE.easeOut
 \`\`\`
 
 ## Core patterns
@@ -147,6 +242,50 @@ const pct = interpolate(frame, [20, 80], [0, 0.85], { extrapolateLeft:'clamp', e
   strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
   strokeLinecap="round" style={{ transform:'rotate(-90deg)', transformOrigin:'100px 100px' }} />
 \`\`\`
+
+## DSL → Code translation guide (READ when user prompt uses these keywords)
+
+| User DSL phrase | Use this |
+|---|---|
+| \`word_by_word slide_from_bottom\` | \`<WordByWord text="..." startFrame={N} staggerFrames={8} direction="up" />\` |
+| \`spring_bounce scale 0→1.2→1.0\` | \`<SpringBounce startFrame={N} mass={0.4} damping={8}>\` |
+| \`fade_in slide_from_bottom Xms\` | \`<FadeIn startFrame={N} duration={D}><SlideIn startFrame={N} direction="up">...</SlideIn></FadeIn>\` |
+| \`float y-oscillation ±Npx period Xs\` | \`<FloatLoop amplitude={N} period={X} phaseOffset={P}>\` |
+| \`breathe scale 1→X→1.0 loop Xs\` | \`<BreatheLoop minScale={1} maxScale={X} period={X}>\` |
+| \`glitch flash overlay RGB split\` | \`<GlitchFlash startFrame={N} durationFrames={4} rgbSpread={8} />\` |
+| \`particle burst N hạt\` | \`<ParticleBurst cx={960} cy={540} startFrame={N} count={N} colors={[...]} />\` |
+| \`gradient fill từ C1 sang C2\` | \`<GradientText from="C1" to="C2">{text}</GradientText>\` |
+| \`fade_out Xms tại Ts\` | \`<FadeOut exitFrame={T*fps} duration={D}>\` OR use opacity interpolate |
+| \`static hold\` | just don't animate during hold period (clamp opacity at 1) |
+| \`Node X vị trí top/right/bottom/left\` | \`<DiagramNode label="X" icon="emoji" x={...} y={...} />\` |
+| \`shimmer highlight\` | \`<ShimmerText startFrame={N} duration={24}>\` |
+| \`[Ns-Ms] scene\` | use \`const t = frame / fps\` and \`show(N, M)\` or \`<ShowRange inFrame={N*fps} outFrame={M*fps}>\` |
+
+### Converting timestamps to frames (fps=30)
+- 0s = frame 0, 1s = frame 30, 2s = frame 60, 4s = frame 120, 8s = frame 240
+- Xms delay at Ts = startFrame = T*fps + Math.round(X/1000*fps)
+- Example: "delay 300ms từ 0s" → startFrame = Math.round(0.3*30) = 9
+- Example: "delay 1900ms từ 4s" → startFrame = 120 + Math.round(1.9*30) = 120+57 = 177
+
+### Multi-scene pattern (for prompts with [Ns-Ms] scene sections)
+\`\`\`tsx
+const t = frame / fps;
+const inRange = (a: number, b: number) => t >= a && t < b;
+// For each scene, wrap content in: {inRange(0, 4) && ( <> ... </> )}
+// OR use <ShowRange inFrame={0*30} outFrame={4*30}>...</ShowRange>
+\`\`\`
+
+## Font loading (CRITICAL — read before using custom fonts)
+- **NEVER import from \`@remotion/google-fonts\`** — that package is NOT installed
+- To use a Google Font, inject a \`<style>\` tag inside \`<AbsoluteFill>\`:
+\`\`\`tsx
+<AbsoluteFill style={{ overflow: 'hidden' }}>
+  <style>{\`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap');\`}</style>
+  {/* ... rest of your video ... */}
+</AbsoluteFill>
+\`\`\`
+- Then use \`fontFamily: "'Space Grotesk', sans-serif"\` in your style props
+- Common Google Font families you can use this way: Space Grotesk, Inter, Roboto, Poppins, Montserrat, Orbitron, Rajdhani
 
 ## Layout rules (CRITICAL)
 - Title font: 72-96px; Subtitle: 32-44px; Body: 22-28px (for 1920×1080)

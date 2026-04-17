@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       if (generationMode === "ai-code") {
         // AI Code Generation mode: AI writes Remotion JSX
         const { code, assistantMessage } = await ai.generateRemotionCode(message, videoType as import("@/lib/ai/codegenSystemPrompt").VideoAnimationType | null);
+        console.log("[ai-code] raw first 200 chars:", JSON.stringify(code.slice(0, 200)));
         const { validateGeneratedCode, parseCodeMeta } = await import("@/lib/ai/codeValidator");
         const validation = validateGeneratedCode(code);
         if (!validation.valid) throw new Error(`Code validation failed: ${validation.error}`);

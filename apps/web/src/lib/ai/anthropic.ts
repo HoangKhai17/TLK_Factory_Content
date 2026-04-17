@@ -84,7 +84,7 @@ export class AnthropicProvider implements AIProvider {
     );
 
     const raw = await this.callAPI(
-      [{ role: "user", content: `Create a Remotion video component for: ${userPrompt}\n\nReturn ONLY the code starting with // META:{...}` }],
+      [{ role: "user", content: `Create a Remotion video component for: ${userPrompt}\n\nCRITICAL: Your response must begin with EXACTLY this pattern (no text before it):\n// META:{"duration":10,"fps":30,"width":1920,"height":1080,"title":"..."}\nThen immediately the import statements and component code. NO markdown fences. NO explanation text.` }],
       getTypeCodegenPrompt(videoType ?? null),
       16384,
     );
@@ -96,7 +96,9 @@ export class AnthropicProvider implements AIProvider {
 
 function extractCode(raw: string): string {
   const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/);
-  return fenced ? (fenced[1] ?? raw).trim() : raw.trim();
+  const stripped = fenced ? (fenced[1] ?? raw).trim() : raw.trim();
+  const metaIdx = stripped.indexOf("// META:");
+  return metaIdx > 0 ? stripped.slice(metaIdx) : stripped;
 }
 
 function extractJSON<T>(raw: string): T {

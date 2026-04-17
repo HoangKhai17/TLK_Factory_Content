@@ -70,9 +70,16 @@ export function validateGeneratedCode(code: string): ValidationResult {
     }
   }
 
-  // Must export a default function named GeneratedVideo
-  if (!/export\s+default\s+function\s+GeneratedVideo/.test(code)) {
-    return { valid: false, error: "Code must export default function GeneratedVideo" };
+  // Must define AND export a component named GeneratedVideo (any common pattern)
+  const definesComponent =
+    /(?:function|const|let|var)\s+GeneratedVideo\b/.test(code);
+  const exportsDefault =
+    /export\s+default\s+function\s+GeneratedVideo\b/.test(code) ||  // export default function GeneratedVideo
+    /export\s+default\s+GeneratedVideo\b/.test(code) ||              // export default GeneratedVideo
+    /export\s+\{\s*GeneratedVideo\s+as\s+default\s*\}/.test(code);  // export { GeneratedVideo as default }
+
+  if (!definesComponent || !exportsDefault) {
+    return { valid: false, error: "Code must define and export default a component named GeneratedVideo" };
   }
 
   return { valid: true, sanitizedCode: code };

@@ -139,7 +139,7 @@ export class GeminiProvider implements AIProvider {
 
 function extractCode(raw: string): string {
   // Try fenced block first, fall back to raw
-  const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/s);
+  const fenced = raw.match(/```(?:tsx?|jsx?)?\s*([\s\S]*?)```/);
   const stripped = fenced ? (fenced[1] ?? raw).trim() : raw.trim();
   // Find // META: anywhere (AI sometimes prepends explanation text)
   const metaIdx = stripped.indexOf("// META:");

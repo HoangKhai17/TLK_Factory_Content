@@ -48,8 +48,16 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
 
   const bundleLocation = await bundle({
     entryPoint: compositionsEntryPath,
-    webpackOverride: (config) => config,
-    // Disable caching in development so source changes are picked up immediately
+    webpackOverride: (config) => ({
+      ...config,
+      resolve: {
+        ...config.resolve,
+        alias: {
+          ...(config.resolve?.alias as Record<string, string> | undefined),
+          "@tlk/motion": path.join(process.cwd(), "src", "remotion", "lib", "index.tsx"),
+        },
+      },
+    }),
     enableCaching: process.env.NODE_ENV === "production",
   });
 
@@ -61,12 +69,10 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
     number
   ];
 
-  // Use actual sum of scene durations (AI sometimes sets spec.duration incorrectly)
-  const CROSS_DISSOLVE_FRAMES = 12;
-  const totalSceneFrames = spec.scenes.reduce((sum, s) => sum + Math.round(s.duration * spec.fps), 0);
+  // Sum each scene's frame count — matches TLKVideo.tsx Sequence logic exactly
   const durationInFrames = Math.max(
-    totalSceneFrames - CROSS_DISSOLVE_FRAMES * Math.max(0, spec.scenes.length - 1),
-    spec.fps // minimum 1 second
+    spec.scenes.reduce((sum, s) => sum + Math.max(spec.fps, Math.round(s.duration * spec.fps)), 0),
+    spec.fps
   );
 
   // Select the composition

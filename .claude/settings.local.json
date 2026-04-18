@@ -4,7 +4,11 @@
       "WebFetch(domain:remotion.dev)",
       "Bash(npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-turbopack)",
       "Bash(npm install:*)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(node -e \"require\\('@remotion/transitions'\\)\")",
+      "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && head -15 \"{}\"')",
+      "Bash(python3 /tmp/write_scenes.py)",
+      "Bash(python /tmp/write_scenes.py)"
     ]
   }
 }

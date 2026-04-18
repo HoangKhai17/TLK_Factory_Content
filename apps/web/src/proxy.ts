@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 const SESSION_COOKIE = "tlk_session";
 const PUBLIC_PATHS = ["/login", "/register"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get(SESSION_COOKIE)?.value;
 

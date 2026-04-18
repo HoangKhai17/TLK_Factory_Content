@@ -87,7 +87,7 @@ SCENE TYPES:
 
 1. "intro" — mở đầu (3–4s, CHỈ dùng khi cần)
 { "id":"s1","type":"intro","duration":3,"background":"gradient:#1a1a2e,#0f3460",
-  "title":{"content":"Tiêu đề","fontSize":80,"fontWeight":"black","color":"#fff","align":"center","animation":"slideInUp"},
+  "title":{"content":"Tiêu đề","fontSize":80,"fontWeight":"black","color":"#fff","align":"center","animation":"wordByWord"},
   "subtitle":{"content":"Mô tả","fontSize":32,"color":"#ffffffcc","animation":"fadeIn","animationDelay":0.4} }
 
 2. "bullet-list" — danh sách tips/tính năng (4–7s tùy số bullets)
@@ -136,6 +136,47 @@ SCENE TYPES:
 { "id":"sN","type":"outro","duration":3,"background":"gradient:#0f3460,#1a1a2e",
   "title":{"content":"CTA mạnh","fontSize":64,"fontWeight":"bold","color":"#fff","align":"center","animation":"zoomIn"},
   "subtitle":{"content":"Hành động","fontSize":28,"color":"#fff","animation":"fadeIn","animationDelay":0.4} }
+
+9. "motion-graphics" — scene cinematic chất lượng cao với particles, glow, gradient text (4–8s)
+   DÙNG KHI: hook mạnh, reveal khái niệm, outro ấn tượng, bất kỳ scene nào cần visual cao cấp
+{ "id":"s1","type":"motion-graphics","duration":6,
+  "background":"gradient:#0f0f23,#1a0f3e",
+  "particles":{"color":"#7c3aed","count":80,"opacity":0.18,"speed":0.3},
+  "glowColor":"#7c3aed",
+  "title":{"content":"AGENTIC AI","fontSize":108,"fontWeight":"black",
+           "gradientFrom":"#a78bfa","gradientTo":"#06b6d4",
+           "animation":"wordByWord","letterSpacing":"8px"},
+  "subtitle":{"content":"Không chỉ trả lời — nó TỰ HÀNH ĐỘNG.","fontSize":34,"animationDelay":0.8},
+  "transition":"wipe-left" }
+
+10. "cards" — 2–4 feature cards xếp ngang (5–7s)
+    DÙNG KHI: liệt kê tính năng/use-case/lợi ích
+{ "id":"s2","type":"cards","duration":6,
+  "background":"gradient:#0f0f1a,#1a0a2e",
+  "glowColor":"#3a5af7",
+  "title":{"content":"Ví dụ thực tế","fontSize":48,"fontWeight":"bold","color":"#fff"},
+  "cards":[
+    {"icon":"✉️","title":"Soạn & gửi email tự động","color":"#06b6d4"},
+    {"icon":"🔍","title":"Tìm kiếm & tổng hợp thông tin","color":"#a78bfa"},
+    {"icon":"⚡","title":"Điều phối quy trình kinh doanh","color":"#7c3aed"}
+  ],
+  "transition":"fade" }
+
+═══════════════════════════════════════════════
+TRANSITIONS (thêm vào scene để tạo hiệu ứng chuyển scene đẹp):
+═══════════════════════════════════════════════
+
+Mỗi scene (trừ scene đầu tiên) có thể có trường "transition":
+• "fade"        — mờ dần (mặc định, luôn an toàn)
+• "wipe-left"   — wipe từ phải sang trái (dramatic)
+• "wipe-right"  — wipe từ trái sang phải
+• "slide-left"  — slide từ phải vào (năng động)
+• "slide-right" — slide từ trái vào
+• "flip"        — lật trang (ấn tượng)
+• "clock"       — kim đồng hồ quét (cinematic)
+• "none"        — cắt thẳng (hard cut, nhanh)
+
+Ví dụ: { "id":"s3", "type":"stat", "transition":"slide-left", "duration":5, ... }
 
 ═══════════════════════════════════════════════
 VÍ DỤ TÍNH THỜI LƯỢNG ĐÚNG:

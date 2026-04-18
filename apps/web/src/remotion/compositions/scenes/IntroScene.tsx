@@ -1,108 +1,36 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene } from "@tlk/shared";
-import { BackgroundDecor } from "../shared/BackgroundDecor";
-import { hexToRgba, parseBackground, useLayout } from "../shared/palette";
+import { parseBackground, hexToRgba, useLayout } from "../shared/palette";
 import type { ColorPalette } from "../shared/palette";
 
-interface IntroSceneProps {
-  scene: Scene;
-  primaryColor: string;
-  accentColor: string;
-  palette: ColorPalette;
-}
+interface Props { scene: Scene; palette: ColorPalette }
 
-export function IntroScene({ scene, accentColor, palette }: IntroSceneProps) {
+export function IntroScene({ scene, palette }: Props) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const layout = useLayout();
+  const accent = scene.glowColor ?? palette.accent;
 
-  // Animated outer ring
-  const ringScale = spring({ frame, fps, config: { mass: 0.7, damping: 12 }, from: 0.2, to: 1 });
-  const ringOpacity = interpolate(frame, [0, fps * 0.4], [0, 1], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  });
+  const titleSc = spring({ frame, fps, config: { mass: 0.6, damping: 12 }, from: 0.7, to: 1 });
+  const titleOp = interpolate(frame, [0, 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  // Rotating ring
-  const rotation = interpolate(frame, [0, fps * 10], [0, 360], {
-    extrapolateLeft: "clamp", extrapolateRight: "wrap",
-  });
+  const subDelay = Math.round(0.5 * fps);
+  const subOp = interpolate(Math.max(0, frame - subDelay), [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const subY  = interpolate(Math.max(0, frame - subDelay), [0, 16], [20, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  // Title
-  const titleOpacity = interpolate(frame, [fps * 0.2, fps * 0.6], [0, 1], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  });
-  const titleY = interpolate(frame, [fps * 0.2, fps * 0.6], [50, 0], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  });
-
-  // Subtitle
-  const subOpacity = interpolate(frame, [fps * 0.5, fps * 0.9], [0, 1], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  });
-  const subScale = spring({ frame: Math.max(0, frame - Math.round(fps * 0.5)), fps, config: { mass: 0.4, damping: 10 }, from: 0.85, to: 1 });
-
-  // Line grow
-  const lineW = interpolate(frame, [fps * 0.4, fps * 0.85], [0, 140], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  });
+  const lineDelay = Math.round(0.3 * fps);
+  const lineW = interpolate(Math.max(0, frame - lineDelay), [0, 20], [0, 120], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), justifyContent: "center", alignItems: "center", flexDirection: "column", gap: Math.round(28 * layout.scale), overflow: "hidden" }}>
-      <BackgroundDecor palette={palette} intensity={0.7} />
-
-      {/* Animated SVG rings */}
-      <div style={{ position: "relative", width: 130, height: 130, opacity: ringOpacity, transform: `scale(${ringScale})` }}>
-        <svg viewBox="0 0 130 130" style={{ position: "absolute", inset: 0, transform: `rotate(${rotation}deg)` }}>
-          {/* Outer dashed ring */}
-          <circle cx={65} cy={65} r={60} fill="none" stroke={hexToRgba(accentColor, 0.4)} strokeWidth={1.5} strokeDasharray="8 6" />
-          {/* Inner ring */}
-          <circle cx={65} cy={65} r={46} fill="none" stroke={hexToRgba(accentColor, 0.25)} strokeWidth={1} />
-          {/* Accent dots on ring */}
-          {[0, 90, 180, 270].map((deg) => {
-            const rad = (deg * Math.PI) / 180;
-            return (
-              <circle key={deg} cx={65 + 60 * Math.cos(rad)} cy={65 + 60 * Math.sin(rad)} r={4} fill={accentColor} style={{ filter: `drop-shadow(0 0 6px ${accentColor})` }} />
-            );
-          })}
-        </svg>
-        {/* Center filled circle */}
-        <div style={{
-          position: "absolute", inset: 20, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${accentColor}, ${palette.primary})`,
-          boxShadow: `0 0 40px ${hexToRgba(accentColor, 0.5)}, 0 0 80px ${hexToRgba(accentColor, 0.2)}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{ width: "50%", height: "50%", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)" }} />
-        </div>
-      </div>
-
-      {/* Title */}
+    <AbsoluteFill style={{ ...parseBackground(scene.background, palette), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: layout.gap, overflow: "hidden" }}>
       {scene.title && (
-        <div style={{
-          opacity: titleOpacity, transform: `translateY(${titleY}px)`,
-          fontSize: scene.title.fontSize ?? 76,
-          fontWeight: scene.title.fontWeight ?? "black",
-          color: scene.title.color ?? palette.text,
-          textAlign: "center", letterSpacing: "-0.03em",
-          lineHeight: 1.1, padding: "0 80px",
-          textShadow: `0 4px 30px ${hexToRgba(accentColor, 0.3)}`,
-        }}>
+        <div style={{ opacity: titleOp, transform: `scale(${titleSc})`, fontSize: scene.title.fontSize ?? Math.round(layout.titleSize * 1.3), fontWeight: scene.title.fontWeight === "black" ? 900 : scene.title.fontWeight === "bold" ? 700 : 600, color: scene.title.color ?? palette.text, textAlign: (scene.title.align ?? "center") as React.CSSProperties["textAlign"], lineHeight: 1.1, padding: `0 ${layout.px}px`, letterSpacing: "-0.02em" }}>
           {scene.title.content}
         </div>
       )}
-
-      {/* Accent line */}
-      <div style={{ width: lineW, height: 3, backgroundColor: accentColor, borderRadius: 2, boxShadow: `0 0 12px ${accentColor}` }} />
-
-      {/* Subtitle */}
+      <div style={{ width: lineW, height: Math.max(2, Math.round(3 * layout.scale)), background: `linear-gradient(to right, ${accent}, ${palette.secondary ?? accent})`, borderRadius: 2 }} />
       {scene.subtitle && (
-        <div style={{
-          opacity: subOpacity, transform: `scale(${subScale})`,
-          fontSize: scene.subtitle.fontSize ?? layout.subtitleSize,
-          fontWeight: "normal",
-          color: scene.subtitle.color ?? hexToRgba(palette.text, 0.75),
-          textAlign: "center", padding: "0 100px", lineHeight: 1.5,
-        }}>
+        <div style={{ opacity: subOp, transform: `translateY(${subY}px)`, fontSize: scene.subtitle.fontSize ?? layout.subtitleSize, color: scene.subtitle.color ?? hexToRgba(palette.text, 0.75), textAlign: "center", padding: `0 ${layout.px}px`, lineHeight: 1.5 }}>
           {scene.subtitle.content}
         </div>
       )}

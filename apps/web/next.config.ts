@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   // Turbopack config (Next.js 16 default)
   turbopack: {},
 
+  // Allow cross-origin dev access from local network (e.g. mobile preview)
+  allowedDevOrigins: ["192.168.1.169"],
+
   // Allow serving rendered video outputs
   async headers() {
     return [

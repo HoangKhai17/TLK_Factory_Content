@@ -21,7 +21,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@tlk/shared": ["../../packages/shared/src/index.ts"],
-      "@tlk/shared/*": ["../../packages/shared/src/*"]
+      "@tlk/shared/*": ["../../packages/shared/src/*"],
+      "@tlk/motion": ["./src/remotion/lib/index.tsx"]
     }
   },
   "include": [

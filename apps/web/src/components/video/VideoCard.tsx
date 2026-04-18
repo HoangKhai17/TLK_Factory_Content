@@ -9,6 +9,7 @@ interface VideoCardProps {
   video: VideoRecord;
   onRender: (videoId: string) => void;
   onDelete: (videoId: string) => void;
+  onPreview?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -51,7 +52,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   marketing: { label: "Marketing", color: "text-[#059669]", bg: "bg-[#ECFDF5]" },
 };
 
-export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
+export function VideoCard({ video, onRender, onDelete, onPreview }: VideoCardProps) {
   const [confirming, setConfirming] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -156,6 +157,18 @@ export function VideoCard({ video, onRender, onDelete }: VideoCardProps) {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 pt-2 border-t border-[#F1F5F9]">
+            {/* Live preview — available for any video with a spec */}
+            {onPreview && (
+              <button
+                onClick={onPreview}
+                title="Xem preview real-time"
+                className="p-2 text-[#3A5AF7] hover:bg-[#EEF2FF] rounded-xl transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.893L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                </svg>
+              </button>
+            )}
 
             {/* Completed: Preview + Download */}
             {isCompleted && (

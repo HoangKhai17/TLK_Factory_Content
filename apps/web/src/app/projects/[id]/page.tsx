@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -8,7 +9,13 @@ import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ModelSwitcher, useActiveModel } from "@/components/chat/ModelSwitcher";
 import { VideoCard } from "@/components/video/VideoCard";
 import { PROVIDER_MODELS } from "@/lib/ai/types";
-import type { Project, VideoRecord, ChatMessage } from "@tlk/shared";
+import type { Project, VideoRecord, ChatMessage, VideoSpec } from "@tlk/shared";
+
+// Dynamic import — @remotion/player is browser-only
+const RemotionPlayer = dynamic(
+  () => import("@/components/video/RemotionPlayer").then((m) => m.RemotionPlayer),
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-40 text-[#94A3B8] text-sm">Đang tải player...</div> }
+);
 
 interface ProjectPageData {
   project: Project;
@@ -28,6 +35,8 @@ export default function ProjectPage({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("chat");
   const [activeModel, setActiveModel] = useActiveModel();
+  const [previewSpec, setPreviewSpec] = useState<VideoSpec | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -353,6 +362,12 @@ export default function ProjectPage({
                         video={video}
                         onRender={handleRender}
                         onDelete={handleDeleteVideo}
+                        onPreview={video.spec ? () => {
+                          try {
+                            setPreviewSpec(JSON.parse(video.spec!) as VideoSpec);
+                            setPreviewTitle(video.title);
+                          } catch { /* ignore parse error */ }
+                        } : undefined}
                       />
                     ))}
                   </div>
@@ -362,6 +377,41 @@ export default function ProjectPage({
           )}
         </div>
       </main>
+
+      {/* ── PREVIEW MODAL ───────────────────────────────────── */}
+      {previewSpec && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setPreviewSpec(null)}
+        >
+          <div
+            className="relative bg-[#0F172A] rounded-2xl shadow-2xl overflow-hidden w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎬</span>
+                <span className="text-sm font-medium text-white truncate max-w-xs">{previewTitle}</span>
+                <span className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-white/60">Preview</span>
+              </div>
+              <button
+                onClick={() => setPreviewSpec(null)}
+                className="text-white/50 hover:text-white transition-colors text-xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Player */}
+            <div className="p-4">
+              <RemotionPlayer spec={previewSpec} controls loop />
+            </div>
+            <div className="px-5 pb-4 text-xs text-white/30 text-center">
+              Preview real-time — chưa render MP4. Nhấn nút Render để xuất file.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

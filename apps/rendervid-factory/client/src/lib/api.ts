@@ -3,13 +3,25 @@ import type { VideoJob, CreateJobRequest, CreateJobResponse, JobsResponse, JobRe
 const BASE = "/api";
 
 async function req<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + url, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  let res: Response;
+  try {
+    res = await fetch(BASE + url, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+  } catch {
+    throw new Error("Cannot connect to server. Make sure the backend is running.");
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+    const errField = (body as { error?: unknown }).error;
+    const msg =
+      typeof errField === "string"
+        ? errField
+        : errField != null
+        ? JSON.stringify(errField)
+        : `HTTP ${res.status}`;
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }

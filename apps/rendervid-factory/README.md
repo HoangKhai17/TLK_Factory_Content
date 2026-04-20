@@ -79,7 +79,7 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 
 GEMINI_API_KEY=AIza...your_key_here
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.5-pro
 
 OUTPUT_DIR=./output
 CLIENT_ORIGIN=http://localhost:5173

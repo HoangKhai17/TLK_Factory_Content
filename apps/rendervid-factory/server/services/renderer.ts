@@ -1,8 +1,11 @@
 import path from "path";
 import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import type { VideoSpec, Scene } from "../../shared/types.js";
 import { logger } from "../utils/logger.js";
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR ?? "./output");
 
@@ -10,47 +13,45 @@ function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-/** Build a color-fill + text overlay ffmpeg filter for a scene */
-function buildSceneFilter(scene: Scene, spec: VideoSpec, sceneIndex: number): string {
-  const bg = scene.background ?? spec.background;
-  const fg = scene.textColor ?? spec.textColor;
-  const accent = spec.accentColor;
-
-  // Convert #rrggbb → 0xRRGGBB for drawbox
-  const hex2ffmpeg = (h: string) => `0x${h.replace("#", "")}`;
-
-  const lines: string[] = [];
-
-  // Title
-  if (scene.title) {
-    lines.push(`drawtext=text='${escapeFfmpegText(scene.title)}':fontsize=64:fontcolor=${fg}:x=(w-text_w)/2:y=(h/2-80):fontfile=/Windows/Fonts/arial.ttf:box=0`);
-  }
-
-  // Content / bullets
-  const bodyLines = scene.bullets?.length
-    ? scene.bullets.map((b) => `• ${b}`).join("\\n")
-    : scene.content ?? "";
-
-  if (bodyLines) {
-    lines.push(`drawtext=text='${escapeFfmpegText(bodyLines)}':fontsize=36:fontcolor=${fg}:x=(w-text_w)/2:y=(h/2+20):fontfile=/Windows/Fonts/arial.ttf:box=0:line_spacing=8`);
-  }
-
-  // Accent bar under title
-  lines.push(`drawbox=x=0:y=0:w=iw:h=6:color=${hex2ffmpeg(accent)}:t=fill`);
-
-  return lines.join(",");
+function hexToFfmpeg(hex: string): string {
+  return `0x${hex.replace("#", "").padEnd(6, "0")}`;
 }
 
 function escapeFfmpegText(s: string): string {
-  return s.replace(/'/g, "\\'").replace(/:/g, "\\:").replace(/\n/g, "\\n").slice(0, 200);
+  // Strip characters that break ffmpeg filter parsing
+  return s
+    .replace(/[':=\\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
 }
 
-function hexToRgb(hex: string): string {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `${r}/${g}/${b}`;
+function buildVfFilter(scene: Scene, spec: VideoSpec, w: number, h: number): string {
+  const fg = hexToFfmpeg(scene.textColor ?? spec.textColor);
+  const accent = hexToFfmpeg(spec.accentColor);
+  const parts: string[] = [];
+
+  // Accent bar
+  parts.push(`drawbox=x=0:y=0:w=${w}:h=8:color=${accent}:t=fill`);
+
+  // Title — fixed center position
+  if (scene.title) {
+    const titleY = Math.round(h * 0.38);
+    parts.push(`drawtext=text='${escapeFfmpegText(scene.title)}':fontsize=56:fontcolor=${fg}:x=(w-text_w)/2:y=${titleY}`);
+  }
+
+  // Body lines — fixed y offsets, no expressions
+  const bodyY = Math.round(h * 0.55);
+  if (scene.bullets?.length) {
+    scene.bullets.slice(0, 4).forEach((b, i) => {
+      parts.push(`drawtext=text='${escapeFfmpegText("- " + b)}':fontsize=26:fontcolor=${fg}:x=${Math.round(w * 0.08)}:y=${bodyY + i * 40}`);
+    });
+  } else if (scene.content) {
+    parts.push(`drawtext=text='${escapeFfmpegText(scene.content)}':fontsize=30:fontcolor=${fg}:x=(w-text_w)/2:y=${bodyY}`);
+  }
+
+  // Join with comma — passed via -vf directly (not through fluent-ffmpeg parser)
+  return parts.join(",");
 }
 
 async function renderScene(
@@ -61,22 +62,19 @@ async function renderScene(
 ): Promise<void> {
   const { fps } = spec;
   const [w, h] = spec.resolution.split("x").map(Number) as [number, number];
-  const frames = Math.round(scene.duration * fps);
-  const bg = scene.background ?? spec.background;
-  const rgb = hexToRgb(bg);
-
-  const filter = buildSceneFilter(scene, spec, sceneIndex);
+  const bg = hexToFfmpeg(scene.background ?? spec.background);
+  const duration = scene.duration;
+  const vf = buildVfFilter(scene, spec, w, h);
 
   return new Promise((resolve, reject) => {
-    const cmd = ffmpeg()
-      .input(`color=c=${rgb}:size=${w}x${h}:rate=${fps}:duration=${scene.duration}`)
-      .inputFormat("lavfi")
-      .videoFilters(filter)
-      .outputOptions([`-t ${scene.duration}`, `-r ${fps}`, "-pix_fmt yuv420p"])
+    ffmpeg()
+      .input(`color=c=${bg}:size=${w}x${h}:rate=${fps}:duration=${duration}`)
+      .inputOptions(["-f lavfi"])
+      .outputOptions(["-vf", vf, `-t`, String(duration), `-r`, String(fps), "-pix_fmt", "yuv420p"])
       .output(outputFile)
       .on("end", () => resolve())
-      .on("error", reject);
-    cmd.run();
+      .on("error", reject)
+      .run();
   });
 }
 

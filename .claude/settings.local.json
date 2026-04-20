@@ -8,7 +8,20 @@
       "Bash(node -e \"require\\('@remotion/transitions'\\)\")",
       "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && head -15 \"{}\"')",
       "Bash(python3 /tmp/write_scenes.py)",
-      "Bash(python /tmp/write_scenes.py)"
+      "Bash(python /tmp/write_scenes.py)",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 25184 /F)",
+      "Bash(cmd /c \"netstat -ano | findstr :3001 | findstr LISTENING\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe /T 2>&1\")",
+      "Bash(timeout 6 npx tsx server/index.ts)",
+      "Bash(timeout 10 npx tsx server/index.ts)",
+      "Bash(cmd /c \"ffmpeg -version 2>&1 | head -2\")",
+      "Bash(cmd /c \"winget --version 2>&1\")",
+      "Bash(cmd /c \"choco --version 2>&1\")",
+      "Bash(node -e \"const f = require\\('@ffmpeg-installer/ffmpeg'\\); console.log\\(f.path\\); console.log\\(f.version\\);\")",
+      "Bash(cmd /c \"D:\\\\WorkSpace_Taloskey\\\\TLK_Factory_Content\\\\apps\\\\rendervid-factory\\\\node_modules\\\\@ffmpeg-installer\\\\win32-x64\\\\ffmpeg.exe -version 2>&1 | head -2\")",
+      "Bash(\"D:/WorkSpace_Taloskey/TLK_Factory_Content/apps/rendervid-factory/node_modules/@ffmpeg-installer/win32-x64/ffmpeg.exe\" -version)"
     ]
   }
 }

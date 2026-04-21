@@ -143,14 +143,91 @@ Worker nhận job
       ↓
 [1] Gọi Gemini API → sinh VideoSpec JSON (danh sách scenes, màu sắc, font...)
       ↓
-[2] ffmpeg render từng scene (màu nền + text overlay)
+[2] normalizeSpec() — làm sạch & validate toàn bộ output AI
       ↓
-[3] ffmpeg concat tất cả scenes → output.mp4
+[3] ffmpeg render từng scene (màu nền + text overlay)
       ↓
-[4] Extract thumbnail từ frame 1s
+[4] ffmpeg concat tất cả scenes → output.mp4
+      ↓
+[5] Extract thumbnail từ frame 1s
       ↓
 Job status → "completed", frontend hiển thị Watch + Download
 ```
+
+---
+
+## Pipeline AI → FFmpeg (chi tiết)
+
+```
+Gemini API  (model: gemini-2.5-pro)
+    │
+    │  responseMimeType: "application/json"
+    │  → bắt buộc model trả về JSON thuần, không có markdown
+    ▼
+rawSpec  (unknown — chưa tin tưởng)
+    │
+    ▼  server/services/ai.ts → normalizeSpec()
+    │
+    ├─ normalizeColor()
+    │     #RGB       → #RRGGBB
+    │     rgb(r,g,b) → #RRGGBB
+    │     0xRRGGBB   → #RRGGBB
+    │     "navy"     → #000080  (named colors)
+    │     "ffffff"   → #FFFFFF  (thiếu #)
+    │     <invalid>  → fallback mặc định
+    │
+    ├─ normalizeText()
+    │     ' ' ' '   → xóa  (curly quotes từ AI)
+    │     " " " "   → xóa
+    │     — –        → -
+    │     …          → ...
+    │     <non-ASCII> → space
+    │     quá dài    → cắt theo maxLen
+    │
+    └─ normalizeScene()  (cho từng scene)
+          type không hợp lệ  → "text"
+          duration ngoài [2,15] → clamp
+          duration là string   → parse + clamp
+          null / missing scene → bỏ qua
+          title thiếu          → "Scene N"
+          bullets chứa null/số → lọc bỏ
+          tổng duration sai    → tính lại từ scenes
+    │
+    ▼
+VideoSpec  (đảm bảo hợp lệ — renderer có thể dùng trực tiếp)
+    │
+    ▼  server/services/renderer.ts
+    │
+    ├─ hexToFfmpeg()      #RRGGBB → 0xRRGGBB  (định dạng màu của ffmpeg)
+    │
+    └─ sanitizeText()     (lớp bảo vệ thứ 2 trước khi đưa vào filter string)
+          '  \ : = [ ] ; ,  → space  (ký tự nguy hiểm cho ffmpeg filter)
+          còn lại non-ASCII → space
+    │
+    ▼
+ffmpeg drawtext=text='...' filter
+    │
+    ▼
+output.mp4  ✓
+```
+
+### Các lỗi AI model thường gặp — đều được xử lý tự động
+
+| Output sai từ AI | Sau normalizeSpec() |
+|---|---|
+| `"rgb(58,90,247)"` | `"#3A5AF7"` |
+| `"navy"` (named color) | `"#000080"` |
+| `"0x06B3ED"` | `"#06B3ED"` |
+| `"ffffff"` (thiếu `#`) | `"#FFFFFF"` |
+| `"thirty"` cho fps | `30` |
+| `"four"` cho duration | `5` (default) |
+| `999` cho duration | `15` (clamped) |
+| Scene là `null` | bỏ qua, tự sinh id |
+| Type `"INVALID_TYPE"` | `"text"` |
+| Text chứa `'` `"` `…` `—` | normalize → ASCII |
+| Tổng `duration` tính sai | tự tính lại = Σ scene.duration |
+| Thiếu trường `title` | `"Scene N"` |
+| `bullets` chứa `null`, số... | lọc bỏ non-string |
 
 ---
 
